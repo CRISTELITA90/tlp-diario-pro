@@ -667,6 +667,81 @@
     }
     .stop-text { font-size: 14px; color: var(--muted); }
 
+    /* ── TIP skill ─────────────────────────────────────────── */
+    .tip-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .tip-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--rs);
+      padding: 14px 12px;
+    }
+    .tip-letter {
+      font-size: 22px;
+      font-weight: 900;
+      color: var(--calm);
+      margin-bottom: 6px;
+    }
+    .tip-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+    .tip-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+    /* ── Notification banner ───────────────────────────────── */
+    .notif-banner {
+      background: linear-gradient(135deg, rgba(124,108,252,.12), rgba(20,184,166,.08));
+      border: 1px solid rgba(124,108,252,.25);
+      border-radius: var(--r);
+      padding: 16px 18px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .notif-banner-text { font-size: 14px; color: var(--text); line-height: 1.4; }
+    .notif-banner-text span { font-size: 12px; color: var(--muted); display: block; margin-top: 2px; }
+    .notif-btn {
+      flex-shrink: 0;
+      padding: 9px 16px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--rs);
+      font-size: 13px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .notif-settings {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 16px 18px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .notif-settings-text { font-size: 14px; color: var(--text); }
+    .notif-settings-text span { font-size: 12px; color: var(--muted); display: block; margin-top: 2px; }
+    input[type="time"] {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--rs);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 15px;
+      padding: 8px 12px;
+      outline: none;
+      cursor: pointer;
+    }
+    input[type="time"]:focus { border-color: var(--accent); }
+
     /* ── Disclaimer ────────────────────────────────────────── */
     .disclaimer {
       text-align: center;
@@ -700,6 +775,24 @@
 
     <!-- ── REGISTRO ─────────────────────────────────────────── -->
     <section class="screen active" id="screen-registro">
+
+      <!-- Notification banner (hidden by default, shown by JS) -->
+      <div class="notif-banner" id="notifBanner" style="display:none">
+        <div class="notif-banner-text">
+          Activar recordatorio diario
+          <span>Te avisamos si no has registrado hoy</span>
+        </div>
+        <button class="notif-btn" id="notifEnableBtn">Activar</button>
+      </div>
+
+      <!-- Notification settings (shown after permission granted) -->
+      <div class="notif-settings" id="notifSettings" style="display:none">
+        <div class="notif-settings-text">
+          🔔 Recordatorio diario
+          <span id="notifSettingsDesc">Activo</span>
+        </div>
+        <input type="time" id="notifTimeInput" value="20:00">
+      </div>
 
       <div class="welcome-banner">
         <div class="welcome-greeting" id="greeting"></div>
@@ -924,6 +1017,35 @@
           <div class="impulse-btns">
             <button class="btn-ghost" id="impulseStart">Iniciar</button>
             <button class="btn-ghost" id="impulseReset">Reiniciar</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- TIP skill -->
+      <div>
+        <div class="c-section-title"><span>🧊</span> Habilidad TIP (DBT) — Regulación fisiológica</div>
+        <div class="tip-grid">
+          <div class="tip-card">
+            <div class="tip-letter">T</div>
+            <div class="tip-name">Temperatura</div>
+            <div class="tip-desc">Sumerge la cara en agua fría 30 seg, o pon hielo en las muñecas. Activa el reflejo de buceo y baja la activación.</div>
+          </div>
+          <div class="tip-card">
+            <div class="tip-letter">I</div>
+            <div class="tip-name">Ejercicio intenso</div>
+            <div class="tip-desc">Corre, salta o haz sentadillas 1 minuto. Quema el exceso de adrenalina rápidamente.</div>
+          </div>
+          <div class="tip-card">
+            <div class="tip-letter">P</div>
+            <div class="tip-name">Respiración lenta</div>
+            <div class="tip-desc">Exhala más despacio que inhala. Usa la respiración guiada arriba. Activa el sistema parasimpático.</div>
+          </div>
+          <div class="tip-card">
+            <div class="tip-letter">P</div>
+            <div class="tip-name">Relajación muscular</div>
+            <div class="tip-desc">Tensa grupos musculares 5 seg y suéltalos. Empieza por los pies, sube hasta la cara.</div>
           </div>
         </div>
       </div>

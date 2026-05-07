@@ -425,6 +425,101 @@ function setGreeting() {
   document.getElementById('greeting').textContent = g;
 }
 
+// ── Notifications ─────────────────────────────────────────────
+const NOTIF_KEY    = 'tlp_notif_time';
+const NOTIF_SHOWN  = 'tlp_notif_shown_date';
+
+function notifSupported() {
+  return 'Notification' in window;
+}
+
+function initNotifUI() {
+  if (!notifSupported()) return;
+
+  const perm      = Notification.permission;
+  const banner    = document.getElementById('notifBanner');
+  const settings  = document.getElementById('notifSettings');
+  const timeInput = document.getElementById('notifTimeInput');
+
+  if (perm === 'default') {
+    banner.style.display = 'flex';
+  } else if (perm === 'granted') {
+    banner.style.display = 'none';
+    settings.style.display = 'flex';
+    const saved = localStorage.getItem(NOTIF_KEY) || '20:00';
+    timeInput.value = saved;
+    updateNotifDesc(saved);
+  }
+}
+
+function updateNotifDesc(time) {
+  document.getElementById('notifSettingsDesc').textContent = `Recordatorio a las ${time}`;
+}
+
+document.getElementById('notifEnableBtn').addEventListener('click', async () => {
+  if (!notifSupported()) return;
+  const perm = await Notification.requestPermission();
+  if (perm === 'granted') {
+    localStorage.setItem(NOTIF_KEY, '20:00');
+    initNotifUI();
+    showToast('🔔 Recordatorio activado a las 20:00');
+    scheduleNotifCheck();
+  } else {
+    showToast('Permiso denegado. Actívalo en ajustes del navegador.');
+  }
+});
+
+document.getElementById('notifTimeInput').addEventListener('change', e => {
+  localStorage.setItem(NOTIF_KEY, e.target.value);
+  updateNotifDesc(e.target.value);
+  showToast(`🔔 Recordatorio actualizado a las ${e.target.value}`);
+});
+
+function scheduleNotifCheck() {
+  const savedTime = localStorage.getItem(NOTIF_KEY) || '20:00';
+  const [h, m]   = savedTime.split(':').map(Number);
+  const now       = new Date();
+  const target    = new Date(now);
+  target.setHours(h, m, 0, 0);
+  if (target <= now) target.setDate(target.getDate() + 1);
+
+  const msUntil = target - now;
+  setTimeout(() => {
+    fireReminder();
+    setInterval(fireReminder, 24 * 60 * 60 * 1000);
+  }, msUntil);
+}
+
+function fireReminder() {
+  if (Notification.permission !== 'granted') return;
+  const today   = new Date().toISOString().slice(0, 10);
+  const entries = DB.load();
+  const hasToday = entries.some(e => e.timestamp.startsWith(today));
+  if (!hasToday) {
+    new Notification('TLP Diario', {
+      body: '¿Cómo te sientes hoy? Tómate un momento para registrarlo.',
+      icon: '/manifest.json',
+      badge: '/manifest.json',
+      tag: 'daily-reminder',
+    });
+  }
+}
+
+function checkMissedToday() {
+  if (Notification.permission !== 'granted') return;
+  const today       = new Date().toISOString().slice(0, 10);
+  const lastShown   = localStorage.getItem(NOTIF_SHOWN);
+  if (lastShown === today) return;
+
+  const entries    = DB.load();
+  const hasToday   = entries.some(e => e.timestamp.startsWith(today));
+  const h          = new Date().getHours();
+  if (!hasToday && h >= 12) {
+    showToast('📝 Aún no has registrado nada hoy');
+    localStorage.setItem(NOTIF_SHOWN, today);
+  }
+}
+
 // ── Service worker registration ───────────────────────────────
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
@@ -436,3 +531,8 @@ updateClock();
 setInterval(updateClock, 30000);
 updateStreak();
 renderImpulse();
+initNotifUI();
+checkMissedToday();
+if (notifSupported() && Notification.permission === 'granted') {
+  scheduleNotifCheck();
+}
