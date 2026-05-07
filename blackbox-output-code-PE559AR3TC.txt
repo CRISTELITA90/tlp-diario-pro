@@ -1,0 +1,4 @@
+EN whatsapp-integration.js (edita en GitHub):
+this.whatsappNumber = '+34643370361';  ← YA ESTÁ
+
+Commit → Listo

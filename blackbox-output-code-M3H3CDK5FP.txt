@@ -1,0 +1,4 @@
+1. Settings → Pages (izquierda)
+2. Source: "Deploy from a branch"
+3. Branch: main → Save
+4. Espera 2 min → URL: https://tuusuario.github.io/tlp-diario-pro/

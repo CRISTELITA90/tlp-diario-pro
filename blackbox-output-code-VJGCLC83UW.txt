@@ -1,0 +1,13 @@
+tlp-diario-pro/
+├── index.html
+├── style.css
+├── script.js
+├── db.js
+├── exercises.js
+├── audio-engine.js
+├── whatsapp-integration.js  ← NUEVO
+├── ai-voice-analysis.js     ← NUEVO
+├── audios-terapia-completo.js
+├── manifest.json
+├── sw.js
+└── README.md

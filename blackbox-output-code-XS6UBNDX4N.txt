@@ -1,0 +1,4 @@
+1. github.com → New Repository
+2. Nombre: "tlp-diario-pro"
+3. Public → Create
+4. Settings → Pages → Source: Deploy from branch → main → Save

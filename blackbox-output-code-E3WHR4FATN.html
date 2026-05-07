@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diario TLP Pro AI</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="style.css">
+    <meta name="theme-color" content="#667eea">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🧠 Diario TLP Pro AI</h1>
+            <p>🎤 Voz + IA + 25 Audios TDC + WhatsApp</p>
+            <div class="audio-controls-header">
+                <button id="recordBtn" class="btn-record">🎙️ Grabar Voz</button>
+                <button id="audioTherapyBtn" class="btn-therapy">🎧 25 Audios</button>
+            </div>
+        </header>
+
+        <!-- WHATSAPP BUTTONS -->
+        <div class="whatsapp-buttons">
+            <button id="shareBtn" class="btn-whatsapp">📱 Enviar Terapeuta</button>
+            <button id="emergencyBtn" class="btn-emergency hidden">🚨 Emergencia WA</button>
+        </div>
+
+        <!-- RECORDER -->
+        <div id="recorderSection" class="audio-section hidden">
+            <div class="recording-display">
+                <div id="recordingTimer">00:00</div>
+                <div id="waveform"></div>
+                <button id="stopRecordBtn" class="btn-stop hidden">⏹️ Parar</button>
+            </div>
+            <div class="audio-analysis">
+                <h4>🤖 Análisis IA Voz</h4>
+                <div id="voiceAnalysis"></div>
+                <button id="transcribeBtn" class="btn-secondary">🔍 Analizar IA</button>
+            </div>
+        </div>
+
+        <!-- FORMULARIO -->
+        <div class="diary-form">
+            <div class="date-section">
+                <input type="date" id="entryDate">
+                <span id="currentDate"></span>
+            </div>
+
+            <div class="audio-entry-preview hidden" id="audioPreview">
+                <strong>🎵 Audio:</strong> <span id="audioDuration"></span>
+                <audio id="playbackAudio" controls></audio>
+                <button id="removeAudio" class="btn-danger">🗑️ Quitar</button>
+            </div>
+
+            <div class="voice-transcript-section hidden" id="transcriptSection">
+                <label>📝 Transcripción IA:</label>
+                <textarea id="voiceTranscript" readonly></textarea>
+            </div>
+
+            <label>😔 Emociones:</label>
+            <textarea id="emotions" placeholder="ira, ansiedad, vacío..."></textarea>
+
+            <label>💭 Pensamientos:</label>
+            <textarea id="thoughts"></textarea>
+
+            <label>✅ Acciones:</label>
+            <textarea id="actions"></textarea>
+
+            <div class="intensity-section">
+                <label>📊 Intensidad:</label>
+                <input type="range" id="intensity" min="1" max="10" value="5">
+                <span id="intensityValue">5</span>
+            </div>
+
+            <button id="saveEntry" class="btn-primary">💾 Guardar + IA</button>
+        </div>
+
+        <!-- SUGERENCIAS + EMERGENCIA -->
+        <div id="suggestionSection" class="suggestion-section hidden">
+            <h3>🎯 Recomendación IA</h3>
+            <div id="exerciseContent"></div>
+            <button id="playGuidedAudio" class="btn-secondary">🎧 Audio Guiado</button>
+            <button id="markDone" class="btn-secondary">✅ Hecho</button>
+        </div>
+
+        <div id="emergencySection" class="emergency-section hidden">
+            <h3>🚨 CRISIS DETECTADA</h3>
+            <button id="whatsappEmergency" class="btn-emergency">🚨 WhatsApp Emergencia</button>
+            <button id="callEmergency" class="btn-emergency">📞 Llamar 112</button>
+        </div>
+
+        <!-- LISTA -->
+        <div class="entries-list">
+            <h3>📋 Últimas (5)</h3>
+            <div id="entriesList"></div>
+        </div>
+    </div>
+
+    <!-- MODAL AUDIOS -->
+    <div id="therapyModal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close">×</span>
+            <h2>🎧 25 Audios TDC</h2>
+            <div id="therapyAudios"></div>
+        </div>
+    </div>
+
+    <script src="db.js"></script>
+    <script src="exercises.js"></script>
+    <script src="audios-terapia-completo.js"></script>
+    <script src="audio-engine.js"></script>
+    <script src="ai-voice-analysis.js"></script>
+    <script src="whatsapp-integration.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
