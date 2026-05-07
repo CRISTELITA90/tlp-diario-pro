@@ -8,6 +8,9 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>TLP Diario Pro</title>
   <link rel="manifest" href="manifest.json">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     /* ── Design tokens ─────────────────────────────────────── */
     :root {
@@ -35,7 +38,7 @@
     html { height: 100%; -webkit-text-size-adjust: 100%; }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+      font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
       background: var(--bg);
       color: var(--text);
       min-height: 100dvh;
@@ -927,6 +930,148 @@
       padding: 6px 12px;
       cursor:pointer;
     }
+
+    /* ── Screen transitions ─────────────────────────────────── */
+    .screen { animation: fadeUp .22s cubic-bezier(.4,0,.2,1); }
+    @keyframes fadeUp {
+      from { opacity:0; transform:translateY(12px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+
+    /* ── Cloud sync banner ──────────────────────────────────── */
+    .cloud-banner {
+      background: linear-gradient(135deg,rgba(124,108,252,.1),rgba(20,184,166,.07));
+      border: 1px solid rgba(124,108,252,.2);
+      border-radius: var(--r);
+      padding: 14px 16px;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .cloud-banner-text { font-size:13px; color:var(--text); line-height:1.4; }
+    .cloud-banner-text small { font-size:11px; color:var(--muted); display:block; margin-top:2px; }
+    .cloud-status {
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .cloud-status.on  { background:rgba(20,184,166,.15); color:var(--calm); }
+    .cloud-status.off { background:var(--accent-dim);    color:var(--accent-light); }
+
+    /* ── Auth modal ─────────────────────────────────────────── */
+    .auth-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.7);
+      backdrop-filter: blur(6px);
+      z-index: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      animation: fadeIn .25s ease;
+    }
+    @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+    .auth-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 32px 28px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 24px 64px rgba(0,0,0,.6);
+    }
+    .auth-logo { font-size:22px; font-weight:800; margin-bottom:4px; }
+    .auth-logo span { color:var(--accent); }
+    .auth-tagline { font-size:14px; color:var(--muted); margin-bottom:28px; line-height:1.5; }
+    .auth-tabs { display:flex; gap:4px; background:var(--surface2); border-radius:var(--rs); padding:4px; margin-bottom:20px; }
+    .auth-tab {
+      flex:1; padding:9px; border:none; border-radius:8px;
+      font-family:inherit; font-size:14px; font-weight:600;
+      color:var(--muted); background:none; cursor:pointer; transition:all .2s;
+    }
+    .auth-tab.active { background:var(--accent); color:#fff; }
+    .auth-input {
+      width:100%; background:var(--surface2); border:1px solid var(--border);
+      border-radius:var(--rs); color:var(--text); font-family:inherit;
+      font-size:15px; padding:13px 14px; outline:none; margin-bottom:10px;
+      transition:border-color .2s;
+    }
+    .auth-input:focus { border-color:var(--accent); }
+    .auth-error { font-size:13px; color:var(--danger); margin-bottom:10px; display:none; }
+    .auth-submit { width:100%; padding:14px; background:var(--accent); color:#fff;
+      border:none; border-radius:var(--r); font-size:15px; font-weight:700;
+      font-family:inherit; cursor:pointer; margin-bottom:12px; transition:opacity .2s; }
+    .auth-submit:active { opacity:.85; }
+    .auth-skip { width:100%; padding:10px; background:none; border:none; color:var(--dim);
+      font-size:13px; font-family:inherit; cursor:pointer; text-decoration:underline; }
+
+    /* ── Heatmap ─────────────────────────────────────────────── */
+    .heatmap-row { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+    .heatmap-label { font-size:12px; color:var(--muted); width:100px; flex-shrink:0; }
+    .heatmap-bar {
+      flex:1; height:28px; background:var(--surface2); border-radius:6px;
+      overflow:hidden; position:relative;
+    }
+    .heatmap-fill {
+      height:100%; border-radius:6px;
+      transition:width .6s ease;
+    }
+    .heatmap-count { font-size:12px; font-weight:700; color:var(--muted); min-width:24px; text-align:right; }
+
+    /* ── Weekly summary card ─────────────────────────────────── */
+    .weekly-header {
+      display:flex; align-items:center;
+      justify-content:space-between; margin-bottom:14px;
+    }
+    .btn-ai {
+      padding: 8px 14px;
+      background: var(--accent-dim);
+      color: var(--accent-light);
+      border: 1px solid rgba(124,108,252,.3);
+      border-radius: var(--rs);
+      font-size: 12px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background .2s;
+      white-space: nowrap;
+    }
+    .btn-ai:active { background:rgba(124,108,252,.25); }
+    .weekly-content { font-size:14px; color:var(--muted); line-height:1.6; }
+    .weekly-insight {
+      border-left: 3px solid var(--accent);
+      padding-left: 14px;
+      color: var(--text);
+      font-style: italic;
+      margin: 12px 0;
+    }
+    .weekly-meta { font-size:12px; color:var(--dim); margin-top:10px; }
+    .weekly-exercise-box {
+      background: var(--surface2);
+      border-radius: var(--rs);
+      padding: 14px;
+      margin-top: 12px;
+    }
+    .weekly-exercise-title { font-size:14px; font-weight:700; margin-bottom:6px; }
+    .weekly-exercise-steps { padding-left:18px; }
+    .weekly-exercise-steps li { font-size:13px; color:var(--muted); margin-bottom:4px; line-height:1.5; }
+
+    /* ── User badge ──────────────────────────────────────────── */
+    .user-badge {
+      font-size: 11px;
+      color: var(--muted);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 10px;
+      cursor: pointer;
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -936,6 +1081,7 @@
     <div class="app-logo">TLP <span>Diario</span></div>
     <div class="header-right">
       <div class="header-streak" id="streakBadge" style="display:none"></div>
+      <button class="user-badge" id="userBadge" title="Cuenta">☁️ Sync</button>
       <div class="header-time" id="headerTime"></div>
     </div>
   </header>
@@ -948,6 +1094,15 @@
 
     <!-- ── REGISTRO ─────────────────────────────────────────── -->
     <section class="screen active" id="screen-registro">
+
+      <!-- Cloud sync banner (shown by JS) -->
+      <div class="cloud-banner" id="cloudBanner" style="display:none">
+        <div class="cloud-banner-text">
+          Guardar en la nube
+          <small>Sincroniza tus datos entre dispositivos</small>
+        </div>
+        <button class="cloud-status off" id="cloudBannerBtn">Activar</button>
+      </div>
 
       <!-- Notification banner (hidden by default, shown by JS) -->
       <div class="notif-banner" id="notifBanner" style="display:none">
@@ -1092,6 +1247,24 @@
       <div class="card">
         <div class="card-title">Intensidad promedio por emoción</div>
         <div id="intensityBars"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Horas más difíciles</div>
+        <div id="heatmapGrid"></div>
+        <div style="font-size:11px;color:var(--dim);margin-top:10px;">
+          Distribución de registros por franja horaria
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="weekly-header">
+          <div class="card-title" style="margin:0">Resumen semanal IA</div>
+          <button class="btn-ai" id="weeklySummaryBtn">🤖 Generar</button>
+        </div>
+        <div id="weeklySummaryContent" class="weekly-content">
+          Analiza tus últimos 7 días con Claude y obtén un resumen emocional personalizado.
+        </div>
       </div>
 
     </section>
@@ -1360,6 +1533,26 @@
     </div>
   </div>
 
+  <!-- ══ Auth modal ══════════════════════════════════════════ -->
+  <div class="auth-overlay" id="authOverlay" style="display:none">
+    <div class="auth-card">
+      <div class="auth-logo">TLP <span>Diario</span></div>
+      <p class="auth-tagline">Guarda tus datos en la nube para no perder nada y sincronizar entre dispositivos.</p>
+
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tabLogin">Iniciar sesión</button>
+        <button class="auth-tab" id="tabSignup">Crear cuenta</button>
+      </div>
+
+      <div id="authError" class="auth-error"></div>
+      <input type="email"    class="auth-input" id="authEmail"    placeholder="tu@email.com" autocomplete="email">
+      <input type="password" class="auth-input" id="authPassword" placeholder="Contraseña"  autocomplete="current-password">
+      <button class="auth-submit" id="authSubmit">Iniciar sesión</button>
+      <button class="auth-skip"   id="authSkip">Continuar sin cuenta</button>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

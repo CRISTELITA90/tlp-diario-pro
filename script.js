@@ -916,6 +916,281 @@ const therapyAudio = (() => {
   return { play, stop, toggle, isPlaying };
 })();
 
+// ── Supabase auth + cloud sync ────────────────────────────────
+const SupaDB = (() => {
+  let client   = null;
+  let userId   = null;
+  let authMode = 'login'; // 'login' | 'signup'
+
+  async function init() {
+    try {
+      const res = await fetch('/api/config');
+      if (!res.ok) return;
+      const { supabaseUrl, supabaseAnonKey } = await res.json();
+      if (!supabaseUrl || !supabaseAnonKey) return;
+
+      client = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+
+      const { data: { session } } = await client.auth.getSession();
+      if (session) {
+        userId = session.user.id;
+        onLoggedIn(session.user);
+      } else {
+        showCloudBanner();
+      }
+
+      client.auth.onAuthStateChange((_e, session) => {
+        if (session) { userId = session.user.id; onLoggedIn(session.user); }
+        else          { userId = null; onLoggedOut(); }
+      });
+    } catch { /* Supabase not configured — local-only mode */ }
+  }
+
+  function onLoggedIn(user) {
+    const badge = document.getElementById('userBadge');
+    badge.style.display = 'block';
+    badge.textContent   = `☁️ ${user.email.split('@')[0]}`;
+    document.getElementById('cloudBanner').style.display = 'none';
+    closeAuthOverlay();
+    syncFromCloud();
+  }
+
+  function onLoggedOut() {
+    document.getElementById('userBadge').style.display = 'none';
+    showCloudBanner();
+  }
+
+  function showCloudBanner() {
+    document.getElementById('cloudBanner').style.display = 'flex';
+  }
+
+  function openAuthOverlay() {
+    document.getElementById('authOverlay').style.display = 'flex';
+  }
+
+  function closeAuthOverlay() {
+    document.getElementById('authOverlay').style.display = 'none';
+  }
+
+  async function saveEntry(entry) {
+    if (!client || !userId) return;
+    await client.from('mood_entries').upsert({
+      user_id:       userId,
+      local_id:      String(entry.id),
+      emotion:       entry.emotion,
+      intensity:     entry.intensity,
+      trigger_event: entry.trigger  || '',
+      notes:         entry.notes    || '',
+      voice_diary:   entry.voiceDiary || false,
+      created_at:    entry.timestamp,
+    }, { onConflict: 'local_id' }).catch(console.warn);
+  }
+
+  async function syncFromCloud() {
+    if (!client || !userId) return;
+    const { data, error } = await client
+      .from('mood_entries')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(500);
+
+    if (error || !data) return;
+
+    const cloud = data.map(e => ({
+      id:         e.local_id || e.id,
+      timestamp:  e.created_at,
+      emotion:    e.emotion,
+      intensity:  e.intensity,
+      trigger:    e.trigger_event,
+      notes:      e.notes,
+      voiceDiary: e.voice_diary,
+    }));
+
+    const local    = DB.load();
+    const cloudIds = new Set(cloud.map(e => String(e.id)));
+
+    // Upload local-only entries
+    const toUpload = local.filter(e => !cloudIds.has(String(e.id)));
+    for (const e of toUpload.slice(0, 30)) await saveEntry(e);
+
+    // Merge and persist
+    const merged = [...cloud, ...local.filter(e => !cloudIds.has(String(e.id)))]
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    localStorage.setItem(DB.KEY, JSON.stringify(merged.slice(0, 500)));
+    showToast('☁️ Sincronizado con la nube');
+    updateStreak();
+  }
+
+  // Auth UI wiring
+  document.getElementById('cloudBannerBtn').addEventListener('click', openAuthOverlay);
+  document.getElementById('userBadge').addEventListener('click', async () => {
+    if (!client) return;
+    await client.auth.signOut();
+    showToast('Sesión cerrada');
+  });
+  document.getElementById('authSkip').addEventListener('click', closeAuthOverlay);
+
+  document.getElementById('tabLogin').addEventListener('click', () => {
+    authMode = 'login';
+    document.getElementById('tabLogin').classList.add('active');
+    document.getElementById('tabSignup').classList.remove('active');
+    document.getElementById('authSubmit').textContent = 'Iniciar sesión';
+  });
+  document.getElementById('tabSignup').addEventListener('click', () => {
+    authMode = 'signup';
+    document.getElementById('tabSignup').classList.add('active');
+    document.getElementById('tabLogin').classList.remove('active');
+    document.getElementById('authSubmit').textContent = 'Crear cuenta';
+  });
+
+  document.getElementById('authSubmit').addEventListener('click', async () => {
+    if (!client) return;
+    const email    = document.getElementById('authEmail').value.trim();
+    const password = document.getElementById('authPassword').value;
+    const errorEl  = document.getElementById('authError');
+    errorEl.style.display = 'none';
+
+    if (!email || !password) {
+      errorEl.textContent = 'Introduce email y contraseña';
+      errorEl.style.display = 'block';
+      return;
+    }
+
+    document.getElementById('authSubmit').textContent = '⌛ Espera…';
+    try {
+      if (authMode === 'signup') {
+        const { error } = await client.auth.signUp({ email, password });
+        if (error) throw error;
+        showToast('✓ Cuenta creada — revisa tu email para confirmar');
+        closeAuthOverlay();
+      } else {
+        const { error } = await client.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+      }
+    } catch (e) {
+      errorEl.textContent = e.message || 'Error de autenticación';
+      errorEl.style.display = 'block';
+      document.getElementById('authSubmit').textContent =
+        authMode === 'signup' ? 'Crear cuenta' : 'Iniciar sesión';
+    }
+  });
+
+  return { init, saveEntry, syncFromCloud };
+})();
+
+// Patch DB.save to background-sync to cloud
+const _originalSave = DB.save.bind(DB);
+DB.save = function(entry) {
+  const saved = _originalSave(entry);
+  SupaDB.saveEntry(saved);
+  return saved;
+};
+
+// ── Heatmap ───────────────────────────────────────────────────
+function renderHeatmap(entries) {
+  const SLOTS = [
+    { label:'🌙 Madrugada (0–6h)',  hours:[0,1,2,3,4,5],      color:'rgba(124,108,252,' },
+    { label:'☀️ Mañana (6–12h)',     hours:[6,7,8,9,10,11],     color:'rgba(245,158,11,' },
+    { label:'🌤️ Tarde (12–18h)',     hours:[12,13,14,15,16,17], color:'rgba(239,68,68,'  },
+    { label:'🌆 Noche (18–24h)',     hours:[18,19,20,21,22,23], color:'rgba(20,184,166,' },
+  ];
+
+  const counts = SLOTS.map(s => ({
+    ...s,
+    count: entries.filter(e => s.hours.includes(new Date(e.timestamp).getHours())).length,
+  }));
+  const max = Math.max(...counts.map(s => s.count), 1);
+
+  document.getElementById('heatmapGrid').innerHTML = counts.map(s => `
+    <div class="heatmap-row">
+      <div class="heatmap-label">${s.label}</div>
+      <div class="heatmap-bar">
+        <div class="heatmap-fill" style="width:${(s.count/max)*100}%;background:${s.color}0.75)"></div>
+      </div>
+      <div class="heatmap-count">${s.count}</div>
+    </div>
+  `).join('');
+}
+
+// ── Weekly summary ─────────────────────────────────────────────
+document.getElementById('weeklySummaryBtn').addEventListener('click', async () => {
+  const btn     = document.getElementById('weeklySummaryBtn');
+  const content = document.getElementById('weeklySummaryContent');
+
+  const weekAgo  = Date.now() - 7 * 864e5;
+  const entries  = DB.load().filter(e => +new Date(e.timestamp) > weekAgo);
+
+  if (entries.length < 2) {
+    content.textContent = 'Necesitas al menos 2 registros esta semana para generar un resumen.';
+    return;
+  }
+
+  btn.textContent = '⌛ Analizando…';
+  btn.style.pointerEvents = 'none';
+
+  const summary = entries.map(e =>
+    `${new Date(e.timestamp).toLocaleDateString('es-ES',{weekday:'short',hour:'2-digit',minute:'2-digit'})}: ${e.emotion} (${e.intensity}/10)${e.trigger ? ' — ' + e.trigger : ''}${e.notes ? ' | ' + e.notes.slice(0,60) : ''}`
+  ).join('\n');
+
+  let result;
+  try {
+    const res = await fetch('/api/weekly-summary', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ summary, count: entries.length }),
+    });
+    if (!res.ok) throw new Error('http ' + res.status);
+    result = await res.json();
+    if (result.error) throw new Error(result.error);
+  } catch {
+    result = generateLocalWeeklySummary(entries);
+  }
+
+  content.innerHTML = `
+    <div class="weekly-insight">${escHtml(result.insight)}</div>
+    ${result.patron ? `<p><strong>Patrón detectado:</strong> ${escHtml(result.patron)}</p>` : ''}
+    ${result.progreso ? `<p style="margin-top:8px"><strong>Progreso:</strong> ${escHtml(result.progreso)}</p>` : ''}
+    ${result.ejercicio ? `
+      <div class="weekly-exercise-box">
+        <div class="weekly-exercise-title">💡 Para esta semana: ${escHtml(result.ejercicio.nombre)}</div>
+        <ol class="weekly-exercise-steps">
+          ${(result.ejercicio.pasos || []).map(p => `<li>${escHtml(p)}</li>`).join('')}
+        </ol>
+      </div>
+    ` : ''}
+    <div class="weekly-meta">
+      ${entries.length} registros · ${result.source === 'claude' ? 'Claude (Anthropic)' : 'análisis local'}
+    </div>
+  `;
+
+  btn.textContent = '🔄 Actualizar';
+  btn.style.pointerEvents = 'auto';
+});
+
+function generateLocalWeeklySummary(entries) {
+  const eCounts = {};
+  entries.forEach(e => { eCounts[e.emotion] = (eCounts[e.emotion] || 0) + 1; });
+  const top     = Object.entries(eCounts).sort((a, b) => b[1] - a[1])[0] || ['neutro', 0];
+  const avgInt  = (entries.reduce((s, e) => s + e.intensity, 0) / entries.length).toFixed(1);
+  const highDays = entries.filter(e => e.intensity >= 8).length;
+
+  return {
+    insight:  `Esta semana registraste ${entries.length} entradas con una intensidad promedio de ${avgInt}/10. La emoción dominante fue ${top[0]}.`,
+    patron:   highDays > 2 ? `${highDays} episodios de intensidad alta (≥8) — considera hablar con tu terapeuta.` : null,
+    progreso: avgInt < 6 ? 'La intensidad promedio está en rango moderado-bajo. ¡Buen trabajo!' : null,
+    ejercicio: { nombre: 'Revisión semanal', pasos: ['Identifica qué situaciones dispararon más intensidad', 'Elige una habilidad DBT para practicar esta semana', 'Comparte el historial con tu terapeuta si lo tienes'] },
+    source:   'local',
+  };
+}
+
+// Patch renderStats to include heatmap
+const _originalRenderStats = renderStats;
+function renderStats() {
+  _originalRenderStats();
+  renderHeatmap(DB.load());
+}
+
 // ── Init ──────────────────────────────────────────────────────
 setGreeting();
 updateClock();
@@ -925,6 +1200,7 @@ renderImpulse();
 initNotifUI();
 checkMissedToday();
 initSpeechRec();
+SupaDB.init();
 if (notifSupported() && Notification.permission === 'granted') {
   scheduleNotifCheck();
 }
