@@ -1,48 +1,61 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>TLP Pro Cristelita90</title>
-    <meta name="viewport" content="width=device-width">
+    <title>TLP Pro - Cristelita90</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
     <style>
-        body { font-family: Arial; max-width: 600px; margin: 0 auto; padding: 20px; background: #f0f4f8; }
-        .btn { padding: 15px; margin: 10px 0; border: none; border-radius: 10px; font-size: 18px; cursor: pointer; width: 100%; }
-        .btn-primary { background: #667eea; color: white; }
-        .btn-recording { background: #ef4444 !important; animation: pulse 1s infinite; }
-        @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
-        textarea { width: 100%; height: 100px; margin: 10px 0; padding: 15px; border-radius: 10px; border: 1px solid #ddd; }
-        #timer { font-size: 2em; color: #ef4444; text-align: center; margin: 20px 0; }
-        #audioPreview { background: #10b981; color: white; padding: 20px; border-radius: 10px; margin: 10px 0; }
-        .entry { background: white; padding: 15px; margin: 10px 0; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        #suggestionSection { background: #10b981; color: white; padding: 20px; border-radius: 10px; margin: 20px 0; }
-        .whatsapp { background: #25d366 !important; }
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:linear-gradient(135deg,#667eea,#764ba2);color:#333;min-height:100vh;padding:20px}
+        .container{max-width:500px;margin:0 auto;background:white;border-radius:20px;padding:30px;box-shadow:0 20px 40px rgba(0,0,0,0.2)}
+        h1{text-align:center;color:#667eea;margin-bottom:10px}
+        .btn{width:100%;padding:18px;margin:10px 0;border:none;border-radius:15px;font-size:18px;font-weight:600;cursor:pointer;transition:all .3s}
+        .btn-primary{background:linear-gradient(135deg,#667eea,#764ba2);color:white}
+        .btn-recording{background:linear-gradient(135deg,#ef4444,#dc2626)!important;animation:pulse 1s infinite}
+        @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+        textarea{width:100%;height:90px;padding:15px;margin:10px 0;border:2px solid #e0e6ed;border-radius:12px;font-size:16px;resize:vertical}
+        textarea:focus{outline:none;border-color:#667eea}
+        #timer{font-size:3em;text-align:center;color:#ef4444;font-weight:bold;margin:20px 0;font-family:monospace}
+        #audioPreview{background:#10b981;color:white;padding:20px;border-radius:12px;margin:20px 0;display:none}
+        #audioPreview audio{width:100%;margin-top:10px}
+        .intensity{display:flex;align-items:center;gap:15px;margin:20px 0}
+        .entry{background:#f8fafc;padding:20px;margin:10px 0;border-radius:12px;border-left:4px solid #667eea}
+        #suggestionSection{background:linear-gradient(135deg,#10b981,#059669);color:white;padding:25px;border-radius:15px;margin:20px 0;display:none;text-align:center}
+        .whatsapp{background:#25d366!important;color:white!important;font-weight:bold!important}
     </style>
 </head>
 <body>
-    <h1>🧠 TLP Pro - Cristelita90</h1>
-    
-    <button id="recordBtn" class="btn btn-primary">🎙️ Grabar Voz</button>
-    <div id="timer">00:00</div>
-    
-    <div id="audioPreview" style="display:none;">
-        <strong>✅ Audio grabado</strong><br>
-        <audio id="playback" controls></audio>
+    <div class="container">
+        <h1>🧠 TLP Pro Cristelita90</h1>
+        <p style="text-align:center;color:#666;margin-bottom:30px">Diario IA + WhatsApp directo</p>
+        
+        <button id="recordBtn" class="btn btn-primary">🎙️ Grabar Voz</button>
+        <div id="timer">00:00</div>
+        
+        <div id="audioPreview">
+            <strong>✅ Audio Grabado</strong><br>
+            <audio id="playbackAudio" controls></audio>
+        </div>
+        
+        <div class="intensity">
+            <label>Intensidad:</label>
+            <input type="range" id="intensity" min="1" max="10" value="5">
+            <span id="intValue">5</span>
+        </div>
+        
+        <textarea id="emotions" placeholder="Emociones (ira, ansiedad, vacío...)"></textarea>
+        <textarea id="thoughts" placeholder="Pensamientos automáticos..."></textarea>
+        
+        <button id="saveBtn" class="btn btn-primary">💾 Guardar + WhatsApp</button>
+        
+        <div id="suggestionSection">
+            <h3 id="suggestion">🎯 Sugerencia IA</h3>
+            <button class="btn whatsapp" onclick="window.open('https://wa.me/+34643370361')">📱 WhatsApp Directo</button>
+        </div>
+        
+        <h3 style="margin:30px 0 15px 0">📋 Últimas Entradas</h3>
+        <div id="entries"></div>
     </div>
-    
-    <input type="range" id="intensity" min="1" max="10" value="5"><span id="intValue">5</span>
-    
-    <textarea id="emotions" placeholder="Emociones: ira, ansiedad, vacío..."></textarea>
-    <textarea id="thoughts" placeholder="Pensamientos ahora..."></textarea>
-    
-    <button id="saveBtn" class="btn btn-primary">💾 Guardar + WhatsApp</button>
-    
-    <div id="suggestionSection" style="display:none;">
-        <div id="suggestion"></div>
-        <button class="btn whatsapp" onclick="window.open('https://wa.me/+34643370361')">📱 WhatsApp Terapeuta</button>
-    </div>
-    
-    <h3>📋 Últimas 5 entradas:</h3>
-    <div id="entries"></div>
 
-    <script>/* PEGA script.js de arriba */</script>
+    <script>/* PEGA EL script.js COMPLETO DE ARRIBA */</script>
 </body>
 </html>
