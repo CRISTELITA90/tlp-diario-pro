@@ -1,47 +1,43 @@
 {
-    "name": "TLP Diario Pro AI - Cristelita90",
-    "short_name": "TLP Pro",
-    "description": "Diario emocional TLP con IA Voz, WhatsApp terapeuta y 25 audios TDC",
-    "id": "tlp-diario-cristelita90",
-    "start_url": "/",
-    "display": "standalone",
-    "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
-    "orientation": "portrait-primary",
-    "lang": "es-ES",
-    "dir": "ltr",
-    "scope": "/",
-    "background_color": "#667eea",
-    "theme_color": "#667eea",
-    "theme_color_data": {"light": "#667eea", "dark": "#764ba2"},
-    "categories": ["health", "medical", "productivity", "utilities"],
-    "screenshots": [{
-        "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==",
-        "sizes": "123x234",
-        "type": "image/png",
-        "form_factor": "narrow",
-        "label": "Diario TLP"
-    }],
-    "shortcuts": [{
-        "name": "Nueva Entrada",
-        "short_name": "Entrada",
-        "description": "Registrar emociones",
-        "url": "/#new-entry",
-        "icons": [{"src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCI+PHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiBmaWxsPSIjNjY3ZWVhIiByeD0iOCIvPjx0ZXh0IHg9IjI0IiB5PSIzMiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0id2hpdGUiIGZvbnQtc2l6ZT0iMTQiPlNldSBkZTogPC90ZXh0Pjwvc3ZnPg==", "sizes": "48x48"}]
-    }, {
-        "name": "Audios TDC",
-        "short_name": "Audios", 
-        "description": "25 audios terapia",
-        "url": "/#audios",
-        "icons": [{"src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCI+PHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiBmaWxsPSIjMTBiOTgxIiByeD0iOCIvPjx0ZXh0IHg9IjI0IiB5PSIzMiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0id2hpdGUiIGZvbnQtc2l6ZT0iMTQiPkF1ZGlvczwvdGV4dD48L3N2Zz4=", "sizes": "48x48"}]
-    }],
-    "icons": [{
-        "src": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIgdmlld0JveD0iMCAwIDE5MiAxOTIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxOTIiIGhlaWdodD0iMTkyIiByeD0iMjQiIGZpbGw9IiM2NjdlZWEiLz4KPHRleHQgeD0iOTYiIHk9IjExMiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0id2hpdGUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSI0OCI+8J+PgTwvdGV4dD4KPC9zdmc+",
-        "sizes": "192x192",
-        "type": "image/svg+xml",
-        "purpose": "maskable any"
-    }, {
-        "src": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgdmlldE...",
-        "sizes": "512x512",
-        "type": "image/svg+xml"
-    }]
+  "name": "TLP Diario Pro",
+  "short_name": "TLP Diario",
+  "description": "Diario emocional clínico para el manejo del Trastorno Límite de Personalidad",
+  "id": "tlp-diario-pro",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "lang": "es-ES",
+  "dir": "ltr",
+  "background_color": "#0f1623",
+  "theme_color": "#0f1623",
+  "categories": ["health", "medical", "utilities"],
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg width='192' height='192' viewBox='0 0 192 192' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='192' height='192' rx='28' fill='%230f1623'/%3E%3Crect x='16' y='16' width='160' height='160' rx='20' fill='%2319243a'/%3E%3Ctext x='96' y='118' text-anchor='middle' font-family='system-ui' font-size='72' fill='%237c6cfc'%3E%F0%9F%8C%8A%3C/text%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg width='512' height='512' viewBox='0 0 512 512' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='512' height='512' rx='72' fill='%230f1623'/%3E%3Crect x='40' y='40' width='432' height='432' rx='52' fill='%2319243a'/%3E%3Ctext x='256' y='308' text-anchor='middle' font-family='system-ui' font-size='192' fill='%237c6cfc'%3E%F0%9F%8C%8A%3C/text%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Nuevo registro",
+      "short_name": "Registro",
+      "description": "Registrar emociones rápidamente",
+      "url": "/#registro"
+    },
+    {
+      "name": "Modo Crisis",
+      "short_name": "Crisis",
+      "description": "Acceso rápido al modo crisis",
+      "url": "/#crisis"
+    }
+  ]
 }
