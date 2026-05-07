@@ -525,6 +525,397 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
 
+// ── Voice Diary ───────────────────────────────────────────────
+let voiceRecorder  = null;
+let voiceStream    = null;
+let voiceRecTimerId = null;
+let voiceSeconds   = 0;
+
+const voiceRecordBtn   = document.getElementById('voiceRecordBtn');
+const voiceRecordLabel = document.getElementById('voiceRecordLabel');
+const voiceTimerEl     = document.getElementById('voiceTimer');
+const voiceTranscript  = document.getElementById('voiceTranscript');
+const analyzeBtn       = document.getElementById('analyzeBtn');
+
+// Speech Recognition
+let speechRec   = null;
+let speechFinal = '';
+
+function initSpeechRec() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return;
+  speechRec = new SR();
+  speechRec.continuous     = true;
+  speechRec.interimResults = true;
+  speechRec.lang           = 'es-ES';
+
+  speechRec.onresult = e => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) speechFinal += e.results[i][0].transcript + ' ';
+      else interim = e.results[i][0].transcript;
+    }
+    voiceTranscript.value = speechFinal + interim;
+    checkAnalyzable();
+  };
+  speechRec.onerror = e => { if (e.error !== 'no-speech') console.warn('SR:', e.error); };
+}
+
+function checkAnalyzable() {
+  const ok = voiceTranscript.value.trim().length >= 10;
+  analyzeBtn.style.opacity      = ok ? '1' : '.4';
+  analyzeBtn.style.pointerEvents = ok ? 'auto' : 'none';
+}
+
+voiceTranscript.addEventListener('input', checkAnalyzable);
+
+voiceRecordBtn.addEventListener('click', async () => {
+  if (voiceRecorder && voiceRecorder.state !== 'inactive') {
+    stopVoiceRecording();
+  } else {
+    await startVoiceRecording();
+  }
+});
+
+async function startVoiceRecording() {
+  try {
+    voiceStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true }
+    });
+  } catch {
+    showToast('Permiso de micrófono denegado. Actívalo en ajustes.');
+    return;
+  }
+
+  speechFinal = '';
+  voiceTranscript.value = '';
+  voiceSeconds = 0;
+  checkAnalyzable();
+
+  voiceRecorder = new MediaRecorder(voiceStream);
+  voiceRecorder.start(500);
+
+  voiceRecordBtn.classList.add('active');
+  voiceRecordLabel.textContent = 'Parar';
+  voiceTimerEl.style.opacity   = '1';
+
+  voiceRecTimerId = setInterval(() => {
+    voiceSeconds++;
+    const m = Math.floor(voiceSeconds / 60).toString().padStart(2, '0');
+    const s = (voiceSeconds % 60).toString().padStart(2, '0');
+    voiceTimerEl.textContent = `${m}:${s}`;
+  }, 1000);
+
+  if (speechRec) { try { speechRec.start(); } catch {} }
+}
+
+function stopVoiceRecording() {
+  if (voiceRecorder?.state !== 'inactive') voiceRecorder?.stop();
+  if (speechRec) { try { speechRec.stop(); } catch {} }
+  if (voiceStream) voiceStream.getTracks().forEach(t => t.stop());
+
+  clearInterval(voiceRecTimerId);
+  voiceRecordBtn.classList.remove('active');
+  voiceRecordLabel.textContent = 'Grabar';
+  voiceTimerEl.style.opacity   = '0';
+
+  if (!voiceTranscript.value.trim() && voiceSeconds > 2) {
+    showToast('Escribe tu diario manualmente si prefires');
+  }
+  checkAnalyzable();
+}
+
+// ── Local keyword analysis (fallback) ─────────────────────────
+const KW = {
+  ansiedad:           ['ansiedad','ansioso','ansiosa','nervioso','nerviosa','agitado','tenso','preocupado','angustia','angustiado','agobia'],
+  ira:                ['ira','rabia','enfadado','enfadada','furioso','furiosa','odio','exploto','explosión','enojo','enojado'],
+  tristeza:           ['triste','tristeza','llorar','lloro','llorando','deprimido','vacío','nada','sin ganas'],
+  'miedo al abandono':['abandonado','sola','solo','nadie','rechazo','rechazado','rechazada','me dejaron','me dejó','me fui'],
+  impulsividad:       ['no pude','actué','impulso','sin pensar','arrepiento','arrepentida','hice algo','me arrepiento'],
+  disociación:        ['desconectado','desconectada','no soy yo','irreal','extraño','confuso','nublado','como si','flotando'],
+  calma:              ['bien','tranquilo','tranquila','calmado','mejor','feliz','contento','paz','alegría','descansado'],
+};
+
+const EXERCISES_LOCAL = {
+  ansiedad:           { nombre:'Respiración 4-4-6', descripcion:'Activa el sistema parasimpático y reduce la activación.', pasos:['Inhala lentamente 4 segundos','Mantén 4 segundos','Exhala despacio 6 segundos — repite 5 veces'] },
+  ira:                { nombre:'TIP — Temperatura', descripcion:'Baja la activación fisiológica rápidamente.', pasos:['Pon agua fría en la cara 30 segundos','O sostén hielo en las manos','Respira despacio mientras lo haces'] },
+  tristeza:           { nombre:'Autocompasión activa', descripcion:'Trata tus emociones con amabilidad y sin juicio.', pasos:['Pon una mano en el pecho','Di: "Es normal sentir esto"','Pregunta: ¿qué necesito ahora?'] },
+  'miedo al abandono':{ nombre:'Grounding 5-4-3-2-1', descripcion:'Ancla tu atención al momento presente seguro.', pasos:['5 cosas que puedes VER','4 que puedes TOCAR','3 que oyes, 2 que hueles, 1 que saboreas'] },
+  impulsividad:       { nombre:'STOP + Timer 10 min', descripcion:'Pausa antes de actuar desde el impulso.', pasos:['Para lo que estás haciendo','Activa el temporizador de 10 minutos','Decide con calma cuando acabe'] },
+  disociación:        { nombre:'Grounding físico', descripcion:'Reconecta con el cuerpo y el entorno.', pasos:['Pisa el suelo con fuerza varias veces','Frota las palmas hasta sentir calor','Nombra 5 objetos que ves ahora mismo'] },
+  calma:              { nombre:'Consolidar el momento', descripcion:'Ancla esta experiencia positiva en la memoria.', pasos:['Observa qué generó esta calma','Respira y disfruta el momento','Anota qué lo hizo posible'] },
+};
+
+const AUDIO_MAP = {
+  ansiedad: 'calma', ira: 'regulacion', tristeza: 'calma',
+  'miedo al abandono': 'equilibrio', impulsividad: 'respiracion',
+  disociación: 'equilibrio', calma: 'calma',
+};
+
+function analyzeLocally(text) {
+  const lower = text.toLowerCase();
+  const found = {};
+  for (const [emotion, words] of Object.entries(KW)) {
+    const hits = words.filter(w => lower.includes(w));
+    if (hits.length) found[emotion] = hits.length;
+  }
+  const sorted   = Object.entries(found).sort((a, b) => b[1] - a[1]);
+  const emotions = sorted.map(([e]) => e).slice(0, 3);
+  const primary  = emotions[0] || 'ansiedad';
+  const intensity = Math.min(10, Math.max(1, sorted.reduce((s, [, n]) => s + n, 0) * 2 + 2));
+
+  return {
+    emociones: emotions.length ? emotions : ['neutro'],
+    keywords:  sorted.flatMap(([e]) => KW[e] ? KW[e].filter(w => lower.includes(w)).slice(0,2) : []).slice(0,5),
+    intensidad: intensity,
+    insight:   emotions.length
+      ? `Tu relato refleja principalmente ${primary}. Reconocer esto es el primer paso para regularte.`
+      : 'Tu diario muestra una experiencia variada. Bien por tomarte este espacio.',
+    ejercicio: EXERCISES_LOCAL[primary] || EXERCISES_LOCAL.ansiedad,
+    audio_recomendado: AUDIO_MAP[primary] || 'calma',
+    source: 'local',
+  };
+}
+
+// ── AI Analysis ───────────────────────────────────────────────
+let lastAnalysis = null;
+
+analyzeBtn.addEventListener('click', async () => {
+  const transcript = voiceTranscript.value.trim();
+  if (!transcript) return;
+
+  analyzeBtn.textContent        = '⌛ Analizando…';
+  analyzeBtn.style.opacity      = '.6';
+  analyzeBtn.style.pointerEvents = 'none';
+
+  let result;
+  try {
+    const res = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transcript }),
+    });
+    if (!res.ok) throw new Error('http ' + res.status);
+    result = await res.json();
+    if (result.error) throw new Error(result.error);
+  } catch {
+    result = analyzeLocally(transcript);
+  }
+
+  lastAnalysis = { ...result, transcript, timestamp: new Date().toISOString() };
+  renderAnalysis(result);
+
+  analyzeBtn.textContent        = '🤖 Analizar de nuevo';
+  analyzeBtn.style.opacity      = '1';
+  analyzeBtn.style.pointerEvents = 'auto';
+});
+
+function renderAnalysis(r) {
+  // Emotion tags
+  document.getElementById('aiEmotionTags').innerHTML =
+    (r.emociones || []).map(e => {
+      const m = EMOTIONS[e.toLowerCase()] || { icon: '💭' };
+      return `<span class="e-tag">${m.icon} ${e}</span>`;
+    }).join('');
+
+  // Intensity
+  const v = r.intensidad || 5;
+  document.getElementById('aiIntensityLabel').textContent = `Intensidad estimada: ${v}/10`;
+  document.getElementById('aiIntensityBar').style.width      = `${v * 10}%`;
+  document.getElementById('aiIntensityBar').style.background = intensityColor(v);
+
+  // Insight
+  document.getElementById('aiInsight').textContent = r.insight || '';
+
+  // Exercise
+  const ex = r.ejercicio || {};
+  document.getElementById('exerciseName').textContent = ex.nombre || '';
+  document.getElementById('exerciseDesc').textContent = ex.descripcion || '';
+  document.getElementById('exerciseSteps').innerHTML  =
+    (ex.pasos || []).map(p => `<li>${escHtml(p)}</li>`).join('');
+
+  // Recommended audio
+  if (r.audio_recomendado) {
+    const LABELS = { calma:'Calma Alpha 432Hz', equilibrio:'Equilibrio 528Hz', regulacion:'Regulación Theta', respiracion:'Respiración guiada' };
+    const btn = document.getElementById('audioRecBtn');
+    btn.textContent    = `▶ ${LABELS[r.audio_recomendado] || 'Audio terapéutico'}`;
+    btn.dataset.prog   = r.audio_recomendado;
+    btn.onclick = () => {
+      therapyAudio.toggle(r.audio_recomendado);
+      btn.textContent = therapyAudio.isPlaying(r.audio_recomendado)
+        ? '⏹ Parar audio'
+        : `▶ ${LABELS[r.audio_recomendado]}`;
+    };
+    document.getElementById('audioRec').style.display = 'block';
+  }
+
+  // Source note
+  document.getElementById('aiSourceNote').textContent =
+    r.source === 'claude' ? 'Análisis por Claude (Anthropic)' : 'Análisis local · configura ANTHROPIC_API_KEY en Vercel para IA completa';
+
+  document.getElementById('aiResults').style.display  = 'block';
+  document.getElementById('saveVoiceBtn').style.display = 'block';
+  setTimeout(() => document.getElementById('aiResults').scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+}
+
+document.getElementById('saveVoiceBtn').addEventListener('click', () => {
+  if (!lastAnalysis) return;
+  const emotion = (lastAnalysis.emociones || [])[0] || 'vacío';
+  DB.save({
+    emotion,
+    intensity: lastAnalysis.intensidad || 5,
+    trigger:   '',
+    notes:     `[Diario de voz] ${lastAnalysis.transcript.slice(0, 200)}`,
+    voiceDiary: true,
+  });
+  showToast('✓ Guardado en historial');
+  document.getElementById('saveVoiceBtn').style.display = 'none';
+  updateStreak();
+});
+
+// ── Therapy Audio (Web Audio API) ─────────────────────────────
+const therapyAudio = (() => {
+  let ctx = null;
+  let currentProg = null;
+  let nodes = [];
+  let masterGain = null;
+
+  function getCtx() {
+    if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+    return ctx;
+  }
+
+  const PROGRAMS = {
+    calma: {
+      label: 'Calma Alpha',
+      build(c, master) {
+        // 3 detuned oscillators → rich pad + 10Hz LFO (alpha entrainment)
+        [[432, .25], [432.7, .18], [431.3, .18]].forEach(([f, g]) => {
+          const o = c.createOscillator(), gain = c.createGain();
+          o.type = 'sine'; o.frequency.value = f; gain.gain.value = g;
+          o.connect(gain); gain.connect(master); o.start();
+          nodes.push(o, gain);
+        });
+        addLFO(c, master, 10, .15);
+      }
+    },
+    equilibrio: {
+      label: 'Equilibrio 528Hz',
+      build(c, master) {
+        [[528, .25], [527.4, .18], [528.6, .18]].forEach(([f, g]) => {
+          const o = c.createOscillator(), gain = c.createGain();
+          o.type = 'sine'; o.frequency.value = f; gain.gain.value = g;
+          o.connect(gain); gain.connect(master); o.start();
+          nodes.push(o, gain);
+        });
+        addLFO(c, master, 2.5, .1);
+      }
+    },
+    regulacion: {
+      label: 'Regulación Theta',
+      build(c, master) {
+        [[396, .28], [395.4, .18]].forEach(([f, g]) => {
+          const o = c.createOscillator(), gain = c.createGain();
+          o.type = 'sine'; o.frequency.value = f; gain.gain.value = g;
+          o.connect(gain); gain.connect(master); o.start();
+          nodes.push(o, gain);
+        });
+        addLFO(c, master, 6, .2);
+      }
+    },
+    respiracion: {
+      label: 'Respiración guiada',
+      build(c, master) {
+        const o = c.createOscillator();
+        o.type = 'sine'; o.frequency.value = 200;
+        o.connect(master); o.start();
+        nodes.push(o);
+        // Rising/falling tone: inhale 4s → hold 4s → exhale 6s
+        let t = c.currentTime + .1;
+        const cycle = () => {
+          if (!nodes.includes(o)) return;
+          o.frequency.setValueAtTime(200, t);
+          o.frequency.linearRampToValueAtTime(370, t + 4);   // inhale
+          o.frequency.setValueAtTime(370, t + 8);             // hold
+          o.frequency.linearRampToValueAtTime(200, t + 14);  // exhale
+          t += 14;
+          setTimeout(cycle, (t - c.currentTime - 1) * 1000);
+        };
+        cycle();
+      }
+    },
+  };
+
+  function addLFO(c, master, freq, depth) {
+    const lfo = c.createOscillator(), lfoG = c.createGain();
+    lfo.type = 'sine'; lfo.frequency.value = freq; lfoG.gain.value = depth;
+    lfo.connect(lfoG); lfoG.connect(master.gain);
+    lfo.start(); nodes.push(lfo, lfoG);
+  }
+
+  function stop() {
+    if (!masterGain || !ctx) return;
+    masterGain.gain.linearRampToValueAtTime(0, ctx.currentTime + 1.2);
+    const snapshot = [...nodes];
+    setTimeout(() => {
+      snapshot.forEach(n => { try { n.stop?.(); n.disconnect(); } catch {} });
+    }, 1300);
+    nodes = []; masterGain = null; currentProg = null;
+    updateAudioUI(null);
+  }
+
+  function play(progId) {
+    const prog = PROGRAMS[progId];
+    if (!prog) return;
+    const wasPlaying = !!currentProg;
+    stop();
+
+    setTimeout(() => {
+      const c = getCtx();
+      if (c.state === 'suspended') c.resume();
+      masterGain = c.createGain();
+      masterGain.gain.setValueAtTime(0, c.currentTime);
+      masterGain.gain.linearRampToValueAtTime(0.32, c.currentTime + 2);
+      masterGain.connect(c.destination);
+      nodes = [masterGain];
+      prog.build(c, masterGain);
+      currentProg = progId;
+      updateAudioUI(progId);
+    }, wasPlaying ? 1350 : 0);
+  }
+
+  function toggle(progId) {
+    currentProg === progId ? stop() : play(progId);
+  }
+
+  function isPlaying(progId) { return currentProg === progId; }
+
+  function updateAudioUI(progId) {
+    document.querySelectorAll('.audio-prog-btn').forEach(b =>
+      b.classList.toggle('playing', b.dataset.prog === progId)
+    );
+    const bar = document.getElementById('audioPlayerBar');
+    if (progId) {
+      document.getElementById('audioProgName').textContent =
+        PROGRAMS[progId]?.label || progId;
+      bar.style.display = 'flex';
+    } else {
+      bar.style.display = 'none';
+    }
+  }
+
+  // Wire crisis mode buttons
+  document.querySelectorAll('.audio-prog-btn').forEach(b =>
+    b.addEventListener('click', () => toggle(b.dataset.prog))
+  );
+  document.getElementById('audioStopBtn').addEventListener('click', stop);
+
+  // Stop audio when crisis overlay closes
+  document.getElementById('crisisClose').addEventListener('click', stop, { capture: true });
+
+  return { play, stop, toggle, isPlaying };
+})();
+
 // ── Init ──────────────────────────────────────────────────────
 setGreeting();
 updateClock();
@@ -533,6 +924,7 @@ updateStreak();
 renderImpulse();
 initNotifUI();
 checkMissedToday();
+initSpeechRec();
 if (notifSupported() && Notification.permission === 'granted') {
   scheduleNotifCheck();
 }

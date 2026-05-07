@@ -1,0 +1,6 @@
+{
+  "name": "tlp-diario-pro",
+  "version": "1.0.0",
+  "description": "Diario emocional clínico para TLP",
+  "engines": { "node": "18.x" }
+}

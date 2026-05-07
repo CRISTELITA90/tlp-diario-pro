@@ -754,6 +754,179 @@
 
     /* ── Divider ───────────────────────────────────────────── */
     .divider { height: 1px; background: var(--border); }
+
+    /* ── Voice diary ─────────────────────────────────────────── */
+    .voz-intro { font-size:14px; color:var(--muted); line-height:1.6; margin-bottom:20px; }
+    .record-area {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      padding: 24px 0 16px;
+    }
+    .record-btn-big {
+      width: 100px; height: 100px;
+      border-radius: 50%;
+      background: var(--surface2);
+      border: 3px solid var(--border);
+      color: var(--text);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      transition: all .2s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .record-btn-big.active {
+      background: rgba(239,68,68,.12);
+      border-color: var(--danger);
+      animation: rec-pulse 1.5s infinite;
+    }
+    .rec-icon { font-size: 34px; line-height: 1; }
+    @keyframes rec-pulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,.4); }
+      50%      { box-shadow: 0 0 0 18px rgba(239,68,68,0); }
+    }
+    .record-timer {
+      font-size: 30px;
+      font-weight: 800;
+      color: var(--danger);
+      font-variant-numeric: tabular-nums;
+      transition: opacity .3s;
+    }
+
+    /* ── AI results ─────────────────────────────────────────── */
+    .ai-results-card { border-color: rgba(124,108,252,.25); }
+    .ai-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .7px;
+      margin-bottom: 8px;
+    }
+    .ai-section { margin-bottom: 16px; }
+    .tag-row { display: flex; flex-wrap: wrap; gap: 6px; }
+    .e-tag {
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      background: var(--accent-dim);
+      color: var(--accent-light);
+    }
+    .ai-insight {
+      font-size: 14px;
+      color: var(--text);
+      line-height: 1.65;
+      font-style: italic;
+      padding: 12px 16px;
+      background: rgba(124,108,252,.07);
+      border-radius: var(--rs);
+      border-left: 3px solid var(--accent);
+      margin-bottom: 16px;
+    }
+    .exercise-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--rs);
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+    .exercise-name { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+    .exercise-desc-text { font-size: 13px; color: var(--muted); margin-bottom: 12px; line-height: 1.4; }
+    .exercise-steps { padding-left: 18px; }
+    .exercise-steps li { font-size: 14px; color: var(--text); margin-bottom: 7px; line-height: 1.5; }
+    .audio-rec-btn {
+      width: 100%;
+      padding: 13px;
+      background: rgba(20,184,166,.12);
+      border: 1px solid rgba(20,184,166,.35);
+      border-radius: var(--rs);
+      color: var(--calm);
+      font-size: 14px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background .2s;
+      margin-top: 4px;
+    }
+    .audio-rec-btn:active { background: rgba(20,184,166,.22); }
+    .ai-source-note { font-size: 11px; color: var(--dim); text-align: right; margin-top: 8px; }
+
+    /* ── Therapy audio player ───────────────────────────────── */
+    .audio-programs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .audio-prog-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 14px 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--rs);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .18s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .audio-prog-btn .ap-icon { font-size: 22px; }
+    .audio-prog-btn small { font-size: 11px; color: var(--dim); font-weight: 400; }
+    .audio-prog-btn.playing {
+      border-color: var(--calm);
+      background: rgba(20,184,166,.1);
+      color: var(--calm);
+    }
+    .audio-prog-btn.playing small { color: rgba(20,184,166,.7); }
+    .audio-player-bar {
+      background: var(--surface);
+      border: 1px solid rgba(20,184,166,.3);
+      border-radius: var(--rs);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .audio-viz { display:flex; align-items:center; gap:3px; height:22px; flex-shrink:0; }
+    .audio-viz span {
+      width: 3px;
+      background: var(--calm);
+      border-radius: 2px;
+      animation: viz-bar .7s ease-in-out infinite;
+    }
+    .audio-viz span:nth-child(1) { height:6px;  animation-delay:0s; }
+    .audio-viz span:nth-child(2) { height:14px; animation-delay:.12s; }
+    .audio-viz span:nth-child(3) { height:22px; animation-delay:.24s; }
+    .audio-viz span:nth-child(4) { height:12px; animation-delay:.36s; }
+    .audio-viz span:nth-child(5) { height:5px;  animation-delay:.48s; }
+    @keyframes viz-bar {
+      0%,100% { transform:scaleY(.4); opacity:.5; }
+      50%      { transform:scaleY(1); opacity:1; }
+    }
+    .audio-prog-name { flex:1; font-size:14px; font-weight:600; color:var(--calm); }
+    .audio-stop-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: var(--rs);
+      color: var(--muted);
+      font-size:12px;
+      font-family:inherit;
+      padding: 6px 12px;
+      cursor:pointer;
+    }
   </style>
 </head>
 <body>
@@ -923,6 +1096,75 @@
 
     </section>
 
+    <!-- ── VOZ ──────────────────────────────────────────────────── -->
+    <section class="screen" id="screen-voz">
+      <h2 class="stat-screen-title">Diario de Voz</h2>
+      <p class="voz-intro">Habla libremente sobre lo que sientes. La IA detecta patrones emocionales y sugiere el ejercicio DBT más adecuado para ti ahora mismo.</p>
+
+      <!-- Record button -->
+      <div class="record-area">
+        <button class="record-btn-big" id="voiceRecordBtn">
+          <span class="rec-icon">🎙️</span>
+          <span id="voiceRecordLabel">Grabar</span>
+        </button>
+        <div class="record-timer" id="voiceTimer" style="opacity:0">00:00</div>
+      </div>
+
+      <!-- Transcript -->
+      <div class="card">
+        <div class="card-title">Transcripción</div>
+        <textarea id="voiceTranscript" rows="5"
+          placeholder="Habla y la transcripción aparecerá aquí automáticamente (Chrome/Edge)…  También puedes escribir directamente."></textarea>
+        <div style="font-size:11px;color:var(--dim);margin-top:6px;">
+          Transcripción automática en Chrome y Edge · puedes editar el texto antes de analizar
+        </div>
+      </div>
+
+      <!-- Analyze -->
+      <button class="btn-primary" id="analyzeBtn" style="opacity:.4;pointer-events:none;margin-bottom:14px;">
+        🤖 Analizar con IA
+      </button>
+
+      <!-- Results -->
+      <div id="aiResults" style="display:none">
+        <div class="card ai-results-card">
+          <div class="card-title">🧠 Análisis</div>
+
+          <div class="ai-section">
+            <div class="ai-label">Emociones detectadas</div>
+            <div class="tag-row" id="aiEmotionTags"></div>
+          </div>
+
+          <div class="ai-section">
+            <div class="ai-label" id="aiIntensityLabel">Intensidad estimada</div>
+            <div class="bar-track" style="margin-top:2px">
+              <div class="bar-fill" id="aiIntensityBar" style="width:0%"></div>
+            </div>
+          </div>
+
+          <div class="ai-insight" id="aiInsight"></div>
+
+          <div class="ai-label">Ejercicio sugerido</div>
+          <div class="exercise-card">
+            <div class="exercise-name" id="exerciseName"></div>
+            <div class="exercise-desc-text" id="exerciseDesc"></div>
+            <ol class="exercise-steps" id="exerciseSteps"></ol>
+          </div>
+
+          <div id="audioRec" style="display:none">
+            <div class="ai-label">Audio de apoyo recomendado</div>
+            <button class="audio-rec-btn" id="audioRecBtn">▶ Reproducir</button>
+          </div>
+
+          <div class="ai-source-note" id="aiSourceNote"></div>
+        </div>
+
+        <button class="btn-ghost" id="saveVoiceBtn" style="width:100%;margin-bottom:20px;">
+          💾 Guardar en historial
+        </button>
+      </div>
+    </section>
+
   </main>
 
   <!-- ══ Bottom nav ═══════════════════════════════════════════ -->
@@ -931,13 +1173,17 @@
       <svg viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
       Registro
     </button>
+    <button class="nav-btn" id="nav-voz" data-screen="voz">
+      <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+      Voz
+    </button>
     <button class="nav-btn" id="nav-historial" data-screen="historial">
       <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
       Historial
     </button>
     <button class="nav-btn" id="nav-stats" data-screen="stats">
       <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-      Estadísticas
+      Stats
     </button>
   </nav>
 
@@ -1072,6 +1318,34 @@
             <div class="stop-letter">P</div>
             <div class="stop-text">Procede con consciencia, no desde el impulso</div>
           </div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Therapy audio -->
+      <div>
+        <div class="c-section-title"><span>🎵</span> Audios terapéuticos</div>
+        <div class="audio-programs">
+          <button class="audio-prog-btn" data-prog="calma">
+            <span class="ap-icon">🌊</span>Calma<small>432Hz · alfa</small>
+          </button>
+          <button class="audio-prog-btn" data-prog="equilibrio">
+            <span class="ap-icon">⚖️</span>Equilibrio<small>528Hz solfeggio</small>
+          </button>
+          <button class="audio-prog-btn" data-prog="regulacion">
+            <span class="ap-icon">🧘</span>Regulación<small>396Hz · theta</small>
+          </button>
+          <button class="audio-prog-btn" data-prog="respiracion">
+            <span class="ap-icon">🫁</span>Respiración<small>guía tonal 4-4-6</small>
+          </button>
+        </div>
+        <div class="audio-player-bar" id="audioPlayerBar" style="display:none">
+          <div class="audio-viz">
+            <span></span><span></span><span></span><span></span><span></span>
+          </div>
+          <div class="audio-prog-name" id="audioProgName">Calma</div>
+          <button class="audio-stop-btn" id="audioStopBtn">⏹ Parar</button>
         </div>
       </div>
 
