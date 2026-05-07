@@ -1,113 +1,164 @@
-// TLP PRO SIMPLIFICADO - FUNCIONA 100%
-class SimpleTLPEngine {
+class TLPPro {
     constructor() {
-        this.entries = JSON.parse(localStorage.getItem('tlpEntries')) || [];
         this.recording = false;
-        this.audioBlob = null;
+        this.startTime = 0;
+        this.timerId = null;
+        this.mediaRecorder = null;
+        this.audioChunks = [];
     }
 
-    async startRecord() {
+    async grabar() {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({audio: true});
+            // Pedir micrófono
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                audio: { 
+                    echoCancellation: true,
+                    noiseSuppression: true 
+                } 
+            });
+            
+            console.log('✅ Micrófono conectado');
+            
+            // Configurar grabador
             this.mediaRecorder = new MediaRecorder(stream);
             this.audioChunks = [];
             
-            this.mediaRecorder.ondataavailable = e => this.audioChunks.push(e.data);
-            this.mediaRecorder.onstop = () => {
-                this.audioBlob = new Blob(this.audioChunks, {type: 'audio/webm'});
-                const url = URL.createObjectURL(this.audioBlob);
-                document.getElementById('playback').src = url;
-                document.getElementById('audioPreview').style.display = 'block';
+            this.mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    this.audioChunks.push(event.data);
+                }
             };
             
-            this.mediaRecorder.start();
+            this.mediaRecorder.onstop = () => {
+                const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+                const audioUrl = URL.createObjectURL(audioBlob);
+                document.getElementById('playbackAudio').src = audioUrl;
+                document.getElementById('audioPreview').style.display = 'block';
+                stream.getTracks().forEach(track => track.stop());
+                console.log('✅ Audio guardado');
+            };
+            
+            // INICIAR
+            this.mediaRecorder.start(100); // Chunks cada 100ms
+            this.startTime = Date.now();
             this.recording = true;
-            document.getElementById('recordBtn').textContent = '⏹️ Parar';
+            
+            // Botón + timer
+            document.getElementById('recordBtn').textContent = '⏹️ PARAR';
             document.getElementById('recordBtn').classList.add('recording');
-            this.timer();
-        } catch(e) {
-            alert('❌ Micrófono: ' + e.message + '\nAjustes→Chrome→Micrófono→Permitir');
+            this.startTimer();
+            
+        } catch (error) {
+            console.error('❌ ERROR:', error);
+            alert('❌ MICRÓFONO BLOQUEADO\n\n' + 
+                '1. Ajustes → Chrome → Micrófono → Permitir\n' +
+                '2. Recarga página\n' +
+                '3. Dale "Permitir" al popup');
         }
     }
 
-    stopRecord() {
+    parar() {
         if (this.mediaRecorder && this.recording) {
             this.mediaRecorder.stop();
             this.recording = false;
-            document.getElementById('recordBtn').textContent = '🎙️ Grabar';
+            document.getElementById('recordBtn').textContent = '🎙️ GRABAR';
             document.getElementById('recordBtn').classList.remove('recording');
+            this.stopTimer();
         }
     }
 
-    timer() {
-        let sec = 0;
-        this.interval = setInterval(() => {
-            sec++;
-            document.getElementById('timer').textContent = 
-                Math.floor(sec/60).toString().padStart(2,'0') + ':' + 
-                (sec%60).toString().padStart(2,'0');
-        }, 1000);
+    startTimer() {
+        this.timerId = setInterval(() => {
+            const elapsed = Math.floor((Date.now() - this.startTime) / 1000);
+            const mins = Math.floor(elapsed / 60).toString().padStart(2, '0');
+            const secs = (elapsed % 60).toString().padStart(2, '0');
+            document.getElementById('timer').textContent = `${mins}:${secs}`;
+        }, 100);
     }
 
-    saveEntry() {
+    stopTimer() {
+        if (this.timerId) {
+            clearInterval(this.timerId);
+            this.timerId = null;
+        }
+    }
+
+    guardar() {
         const entry = {
-            date: new Date().toISOString(),
-            emotions: document.getElementById('emotions').value,
-            thoughts: document.getElementById('thoughts').value,
+            date: new Date().toLocaleString('es-ES'),
+            emotions: document.getElementById('emotions').value || 'No especificado',
+            thoughts: document.getElementById('thoughts').value || 'No especificado',
             intensity: document.getElementById('intensity').value,
-            audio: this.audioBlob ? 'yes' : 'no'
+            audio: document.getElementById('audioPreview').style.display !== 'none'
         };
-        this.entries.unshift(entry);
-        localStorage.setItem('tlpEntries', JSON.stringify(this.entries));
-        this.showSuggestion(entry);
-        this.clearForm();
-        this.showEntries();
-        this.sendWhatsApp(entry);
-    }
 
-    sendWhatsApp(entry) {
-        const msg = `📱 TLP PRO\n😰 ${entry.intensity}/10\n💭 ${entry.emotions}\n${entry.thoughts.substring(0,100)}`;
-        window.open(`https://wa.me/+34643370361?text=${encodeURIComponent(msg)}`);
-    }
+        // Guardar local
+        let entries = JSON.parse(localStorage.getItem('tlpEntries') || '[]');
+        entries.unshift(entry);
+        localStorage.setItem('tlpEntries', JSON.stringify(entries.slice(0, 50)));
 
-    showSuggestion(entry) {
-        const sug = entry.intensity > 7 ? '🛑 STOP' : 
-                   entry.emotions.includes('ansiedad') ? '🌬️ Respirar' : '💖 Autocompasión';
-        document.getElementById('suggestion').innerHTML = `<h3>${sug}</h3>`;
+        // WhatsApp
+        const msg = `🧠 TLP PRO CRISTELITA90\n\n` +
+            `📅 ${entry.date}\n` +
+            `😰 Intensidad: ${entry.intensity}/10\n` +
+            `💭 Emociones: ${entry.emotions}\n` +
+            `💭 Pensamientos: ${entry.thoughts}\n` +
+            `🎤 Audio: ${entry.audio ? '✅ SÍ' : '❌ No'}\n\n` +
+            `#TLP #DiarioPro`;
+        
+        window.open(`https://wa.me/+34643370361?text=${encodeURIComponent(msg)}`, '_blank');
+        
+        // Mostrar
+        document.getElementById('suggestion').innerHTML = 
+            entry.intensity > 7 ? '🚨 STOP + Respira' :
+            entry.emotions.includes('ansiedad') ? '🌬️ Respiración 4-7-8' : 
+            '💖 Autocompasión';
+        
         document.getElementById('suggestionSection').style.display = 'block';
+        this.mostrarEntradas();
+        this.limpiar();
     }
 
-    clearForm() {
+    limpiar() {
         document.getElementById('emotions').value = '';
         document.getElementById('thoughts').value = '';
         document.getElementById('intensity').value = 5;
-        document.getElementById('audioPreview').style.display = 'none';
-        clearInterval(this.interval);
         document.getElementById('timer').textContent = '00:00';
-        document.getElementById('recordBtn').textContent = '🎙️ Grabar';
-        document.getElementById('recordBtn').classList.remove('recording');
+        document.getElementById('audioPreview').style.display = 'none';
+        if (document.getElementById('playbackAudio').src) {
+            URL.revokeObjectURL(document.getElementById('playbackAudio').src);
+        }
     }
 
-    showEntries() {
+    mostrarEntradas() {
+        const entries = JSON.parse(localStorage.getItem('tlpEntries') || '[]');
         document.getElementById('entries').innerHTML = 
-            this.entries.slice(0,5).map(e => 
-                `<div class="entry">
-                    <strong>${new Date(e.date).toLocaleString()}</strong>
-                    <div>😰 ${e.intensity}/10</div>
-                    <div>${e.emotions}</div>
-                </div>`
-            ).join('');
+            entries.slice(0,5).map(e => `
+                <div class="entry">
+                    <strong>${e.date}</strong><br>
+                    😰 ${e.intensity}/10<br>
+                    ${e.emotions}
+                </div>
+            `).join('');
     }
 }
 
-const tlp = new SimpleTLPEngine();
+const tlp = new TLPPro();
 
 // EVENTOS
-document.getElementById('recordBtn').onclick = () => {
-    if (tlp.recording) tlp.stopRecord();
-    else tlp.startRecord();
-};
+document.getElementById('recordBtn').addEventListener('click', () => {
+    if (tlp.recording) {
+        tlp.parar();
+    } else {
+        tlp.grabar();
+    }
+});
 
-document.getElementById('saveBtn').onclick = () => tlp.saveEntry();
+document.getElementById('saveBtn').addEventListener('click', () => tlp.guardar());
 
-tlp.showEntries();
+document.getElementById('intensity').addEventListener('input', (e) => {
+    document.getElementById('intValue').textContent = e.target.value;
+});
+
+// CARGAR
+tlp.mostrarEntradas();
