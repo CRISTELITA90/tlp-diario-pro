@@ -1,38 +1,71 @@
 /* ============================================================
    TLP Diario Pro — script.js
-   Clinical MVP: emotion tracking, history, crisis mode, stats
+   Mi Mapa Emocional: morning/night check-in, dual notifications,
+   crisis mode, history, stats.
    ============================================================ */
 
-// ── Emotion metadata ──────────────────────────────────────────
-const EMOTIONS = {
-  'ansiedad':          { icon: '😰', color: '#7c6cfc' },
-  'vacío':             { icon: '🕳️', color: '#8892b0' },
-  'ira':               { icon: '🔥', color: '#ef4444' },
-  'tristeza':          { icon: '💧', color: '#60a5fa' },
-  'miedo al abandono': { icon: '👻', color: '#a78bfa' },
-  'impulsividad':      { icon: '⚡', color: '#f59e0b' },
-  'disociación':       { icon: '🌫️', color: '#94a3b8' },
-  'calma':             { icon: '🌊', color: '#14b8a6' },
-};
+// ── Utility ───────────────────────────────────────────────────
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
 
-// ── Data layer (localStorage) ─────────────────────────────────
-const DB = {
-  KEY: 'tlp_entries_v2',
+// ── Mapa data layer (localStorage) ───────────────────────────
+const MapaDB = {
+  KEY: 'tlp_mapa_v1',
   load() {
-    try { return JSON.parse(localStorage.getItem(this.KEY) || '[]'); }
-    catch { return []; }
+    try { return JSON.parse(localStorage.getItem(this.KEY) || '[]'); } catch { return []; }
   },
-  save(entry) {
+  getTodayEntry(period) {
+    const today = new Date().toISOString().slice(0, 10);
+    return this.load().find(e => e.date === today && e.period === period) || null;
+  },
+  save(period, data) {
     const entries = this.load();
-    const newEntry = { id: Date.now(), timestamp: new Date().toISOString(), ...entry };
-    entries.unshift(newEntry);
-    localStorage.setItem(this.KEY, JSON.stringify(entries.slice(0, 500)));
-    return newEntry;
+    const today = new Date().toISOString().slice(0, 10);
+    const filtered = entries.filter(e => !(e.date === today && e.period === period));
+    const entry = { id: Date.now(), timestamp: new Date().toISOString(), date: today, period, ...data };
+    filtered.unshift(entry);
+    localStorage.setItem(this.KEY, JSON.stringify(filtered.slice(0, 365)));
+    return entry;
   },
 };
 
 // ── App state ─────────────────────────────────────────────────
-let selectedEmotion = null;
+let currentPeriod = 'manana';
+
+// ── Scale values ──────────────────────────────────────────────
+const scaleValues = { scaleSueno: 0, scaleEnergia: 0, scaleEmocion: 0 };
+
+function buildScaleRow(containerId, field) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = '';
+  for (let i = 1; i <= 10; i++) {
+    const btn = document.createElement('button');
+    btn.className = 'scale-btn';
+    btn.textContent = i;
+    btn.dataset.v = i;
+    btn.addEventListener('click', () => {
+      scaleValues[field] = i;
+      el.querySelectorAll('.scale-btn').forEach(b => b.className = 'scale-btn');
+      btn.className = 'scale-btn ' + (i <= 3 ? 'sel-low' : i <= 6 ? 'sel-mid' : 'sel-high');
+    });
+    el.appendChild(btn);
+  }
+}
+
+function setScaleValue(containerId, field, value) {
+  if (!value) return;
+  scaleValues[field] = value;
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.querySelectorAll('.scale-btn').forEach(b => {
+    b.className = 'scale-btn';
+    if (parseInt(b.dataset.v) === value) {
+      b.className = 'scale-btn ' + (value <= 3 ? 'sel-low' : value <= 6 ? 'sel-mid' : 'sel-high');
+    }
+  });
+}
 
 // ── Toast ─────────────────────────────────────────────────────
 let toastTimer = null;
@@ -50,72 +83,41 @@ function navigate(screen) {
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('screen-' + screen).classList.add('active');
   document.getElementById('nav-' + screen).classList.add('active');
-  if (screen === 'historial')  renderHistory();
-  if (screen === 'stats')      renderStats();
+  if (screen === 'historial') renderHistory();
+  if (screen === 'stats')     renderStats();
 }
 
 document.querySelectorAll('.nav-btn').forEach(btn => {
   btn.addEventListener('click', () => navigate(btn.dataset.screen));
 });
 
-// ── Emotion selection ─────────────────────────────────────────
-document.getElementById('emotionGrid').addEventListener('click', e => {
-  const btn = e.target.closest('.emotion-btn');
-  if (!btn) return;
-  document.querySelectorAll('.emotion-btn').forEach(b => b.classList.remove('selected'));
-  btn.classList.add('selected');
-  selectedEmotion = btn.dataset.emotion;
-});
+// ── Greeting ──────────────────────────────────────────────────
+function setGreeting() {
+  const h = new Date().getHours();
+  let greeting, emoji;
+  if (h >= 5 && h < 12)  { greeting = '¡Buenos días!';   emoji = '🌸'; }
+  else if (h >= 12 && h < 20) { greeting = '¡Buenas tardes!'; emoji = '☀️'; }
+  else                   { greeting = '¡Buenas noches!';  emoji = '🌙'; }
+  document.getElementById('mapaGreeting').textContent = emoji + ' ' + greeting;
 
-// ── Intensity slider ──────────────────────────────────────────
-const slider = document.getElementById('intensitySlider');
-const intensityDisplay = document.getElementById('intensityDisplay');
-
-function intensityColor(v) {
-  if (v <= 3) return '#14b8a6';
-  if (v <= 6) return '#7c6cfc';
-  if (v <= 8) return '#f59e0b';
-  return '#ef4444';
+  const now = new Date();
+  document.getElementById('mapaDate').textContent = now.toLocaleDateString('es-ES', {
+    weekday: 'long', day: 'numeric', month: 'long'
+  });
 }
 
-slider.addEventListener('input', () => {
-  const v = parseInt(slider.value);
-  intensityDisplay.textContent = v;
-  const c = intensityColor(v);
-  intensityDisplay.style.color = c;
-  slider.style.setProperty('--thumb-color', c);
-});
-
-// ── Save entry ────────────────────────────────────────────────
-document.getElementById('saveBtn').addEventListener('click', () => {
-  if (!selectedEmotion) { showToast('Selecciona cómo te sientes'); return; }
-
-  const intensity = parseInt(slider.value);
-  const trigger   = document.getElementById('triggerSelect').value;
-  const notes     = document.getElementById('notesInput').value.trim();
-
-  DB.save({ emotion: selectedEmotion, intensity, trigger, notes });
-
-  // Reset
-  document.querySelectorAll('.emotion-btn').forEach(b => b.classList.remove('selected'));
-  selectedEmotion = null;
-  slider.value = 5;
-  intensityDisplay.textContent = '5';
-  intensityDisplay.style.color = '';
-  document.getElementById('triggerSelect').value = '';
-  document.getElementById('notesInput').value = '';
-
-  showToast('✓ Registro guardado');
-  if (intensity >= 8) setTimeout(() => showToast('⚠️ Intensidad alta — considera el Modo Crisis'), 2000);
-  updateStreak();
-});
+// ── Header clock ──────────────────────────────────────────────
+function updateClock() {
+  document.getElementById('headerTime').textContent =
+    new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+}
 
 // ── Streak badge ──────────────────────────────────────────────
 function updateStreak() {
-  const entries = DB.load();
+  const entries = MapaDB.load();
   if (!entries.length) return;
 
-  const days = new Set(entries.map(e => e.timestamp.slice(0, 10)));
+  const days = new Set(entries.map(e => e.date));
   let streak = 0;
   let d = new Date();
   while (true) {
@@ -132,9 +134,116 @@ function updateStreak() {
   }
 }
 
+// ── Completion badges ─────────────────────────────────────────
+function updateCompletionBadges() {
+  const m = MapaDB.getTodayEntry('manana');
+  const n = MapaDB.getTodayEntry('noche');
+  const mb = document.getElementById('compManana');
+  const nb = document.getElementById('compNoche');
+  mb.textContent = m ? '✓ Mañana completa' : '⭕ Mañana pendiente';
+  mb.className = 'comp-badge' + (m ? ' done' : '');
+  nb.textContent = n ? '✓ Noche completa' : '⭕ Noche pendiente';
+  nb.className = 'comp-badge' + (n ? ' done' : '');
+}
+
+// ── Period toggle ─────────────────────────────────────────────
+function switchPeriod(period) {
+  currentPeriod = period;
+  document.getElementById('formManana').style.display = period === 'manana' ? 'block' : 'none';
+  document.getElementById('formNoche').style.display  = period === 'noche'  ? 'block' : 'none';
+  document.getElementById('periodBtnManana').classList.toggle('active', period === 'manana');
+  document.getElementById('periodBtnNoche').classList.toggle('active', period === 'noche');
+
+  // Load existing saved values into form
+  if (period === 'manana') {
+    loadMananaForm();
+  } else {
+    loadNocheForm();
+  }
+}
+
+document.getElementById('periodBtnManana').addEventListener('click', () => switchPeriod('manana'));
+document.getElementById('periodBtnNoche').addEventListener('click',  () => switchPeriod('noche'));
+
+// ── Load morning form ─────────────────────────────────────────
+function loadMananaForm() {
+  const entry = MapaDB.getTodayEntry('manana');
+  if (!entry) return;
+
+  setScaleValue('scaleSueno',   'scaleSueno',   entry.sueno);
+  setScaleValue('scaleEnergia', 'scaleEnergia', entry.energia);
+  setScaleValue('scaleEmocion', 'scaleEmocion', entry.emocion);
+
+  const fields = ['Necesito','Meta','PrimerPaso','Mantra','PensamientoLimitante','CambioPensamiento'];
+  fields.forEach(f => {
+    const el = document.getElementById('input' + f);
+    if (el) el.value = entry[f.toLowerCase()] || '';
+  });
+}
+
+// ── Load night form ───────────────────────────────────────────
+function loadNocheForm() {
+  const entry = MapaDB.getTodayEntry('noche');
+  if (!entry) return;
+
+  const fields = [
+    'DialogoError','SituacionEstres','Reaccion','Diferente','Comunicar',
+    'Asertividad','Vinculo','Logro','Cualidad','Actitud',
+    'EmocionPredomino','PensamientoEmocion','Gratitud'
+  ];
+  fields.forEach(f => {
+    const el = document.getElementById('input' + f);
+    if (el) el.value = entry[f.toLowerCase()] || '';
+  });
+}
+
+// ── Save morning ──────────────────────────────────────────────
+document.getElementById('saveManana').addEventListener('click', () => {
+  const data = {
+    sueno:                scaleValues.scaleSueno,
+    energia:              scaleValues.scaleEnergia,
+    emocion:              scaleValues.scaleEmocion,
+    necesito:             document.getElementById('inputNecesito').value.trim(),
+    meta:                 document.getElementById('inputMeta').value.trim(),
+    primerpaso:           document.getElementById('inputPrimerPaso').value.trim(),
+    mantra:               document.getElementById('inputMantra').value.trim(),
+    pensamientolimitante: document.getElementById('inputPensamientoLimitante').value.trim(),
+    cambioPensamiento:    document.getElementById('inputCambioPensamiento').value.trim(),
+  };
+
+  MapaDB.save('manana', data);
+  showToast('☀️ Mañana guardada');
+  updateCompletionBadges();
+  updateStreak();
+});
+
+// ── Save night ────────────────────────────────────────────────
+document.getElementById('saveNoche').addEventListener('click', () => {
+  const data = {
+    dialogoerror:         document.getElementById('inputDialogoError').value.trim(),
+    situacionestres:      document.getElementById('inputSituacionEstres').value.trim(),
+    reaccion:             document.getElementById('inputReaccion').value.trim(),
+    diferente:            document.getElementById('inputDiferente').value.trim(),
+    comunicar:            document.getElementById('inputComunicar').value.trim(),
+    asertividad:          document.getElementById('inputAsertividad').value.trim(),
+    vinculo:              document.getElementById('inputVinculo').value.trim(),
+    logro:                document.getElementById('inputLogro').value.trim(),
+    cualidad:             document.getElementById('inputCualidad').value.trim(),
+    actitud:              document.getElementById('inputActitud').value.trim(),
+    emocionpredomino:     document.getElementById('inputEmocionPredomino').value.trim(),
+    pensamientoemocion:   document.getElementById('inputPensamientoEmocion').value.trim(),
+    gratitud:             document.getElementById('inputGratitud').value.trim(),
+  };
+
+  MapaDB.save('noche', data);
+  showToast('🌙 Noche guardada');
+  updateCompletionBadges();
+  updateStreak();
+});
+
 // ── Render history ────────────────────────────────────────────
 function renderHistory() {
-  const entries = DB.load();
+  const entries = MapaDB.load();
   const count   = document.getElementById('entryCount');
   const list    = document.getElementById('entriesList');
 
@@ -143,109 +252,133 @@ function renderHistory() {
   if (!entries.length) {
     list.innerHTML = `
       <div class="empty-state">
-        <div class="empty-icon">📖</div>
+        <div class="empty-icon">🗺️</div>
         <div class="empty-title">Sin registros aún</div>
-        <div class="empty-sub">Cuando guardes tu primera entrada,<br>aparecerá aquí.</div>
+        <div class="empty-sub">Completa tu primer mapa emocional<br>y aparecerá aquí.</div>
       </div>`;
     return;
   }
 
-  list.innerHTML = entries.map(e => {
-    const d    = new Date(e.timestamp);
-    const time = d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })
-               + ' · ' + d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-    const meta = EMOTIONS[e.emotion] || { icon: '💭' };
-    const cls  = e.emotion === 'calma' ? 'calm-e' : e.intensity >= 8 ? 'high' : '';
-    return `
-      <div class="entry-card ${cls}">
-        <div class="entry-icon">${meta.icon}</div>
-        <div class="entry-body">
-          <div class="entry-top">
-            <div class="entry-emotion">${e.emotion}</div>
-            <div class="entry-badge">${e.intensity}/10</div>
-          </div>
-          <div class="entry-time">${time}</div>
-          ${e.trigger ? `<div class="entry-trigger">↳ ${e.trigger}</div>` : ''}
-          ${e.notes   ? `<div class="entry-notes">${escHtml(e.notes)}</div>` : ''}
-        </div>
-      </div>`;
-  }).join('');
-}
+  // Group by date
+  const byDate = {};
+  entries.forEach(e => {
+    if (!byDate[e.date]) byDate[e.date] = {};
+    byDate[e.date][e.period] = e;
+  });
 
-function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const sortedDates = Object.keys(byDate).sort((a, b) => b.localeCompare(a));
+
+  list.innerHTML = sortedDates.map(date => {
+    const dateLabel = new Date(date + 'T12:00:00').toLocaleDateString('es-ES', {
+      weekday: 'long', day: 'numeric', month: 'long'
+    });
+    const m = byDate[date]['manana'];
+    const n = byDate[date]['noche'];
+
+    let html = `<div class="entry-date-header">${dateLabel}</div>`;
+
+    if (m) {
+      const scores = [];
+      if (m.sueno)   scores.push(`🌙 Sueño: ${m.sueno}`);
+      if (m.energia) scores.push(`⚡ Energía: ${m.energia}`);
+      if (m.emocion) scores.push(`💜 Emoción: ${m.emocion}`);
+      const snippet = m.mantra || m.meta || '';
+      html += `
+        <div class="entry-period-card">
+          <div class="entry-period-title">☀️ Mañana</div>
+          ${scores.length ? `<div class="entry-scores">${scores.map(s => `<span class="entry-score-chip">${s}</span>`).join('')}</div>` : ''}
+          ${snippet ? `<div class="entry-snippet">"${escHtml(snippet.slice(0,80))}"</div>` : ''}
+        </div>`;
+    }
+
+    if (n) {
+      const emotion = n.emocionpredomino || '';
+      const snippet = n.logro || n.gratitud || '';
+      html += `
+        <div class="entry-period-card">
+          <div class="entry-period-title">🌙 Noche</div>
+          ${emotion ? `<div class="entry-scores"><span class="entry-score-chip">💜 ${escHtml(emotion.slice(0,30))}</span></div>` : ''}
+          ${snippet ? `<div class="entry-snippet">"${escHtml(snippet.slice(0,80))}"</div>` : ''}
+        </div>`;
+    }
+
+    return html;
+  }).join('');
 }
 
 // ── Render stats ──────────────────────────────────────────────
 function renderStats() {
-  const entries = DB.load();
+  const entries = MapaDB.load();
+  const allDays = new Set(entries.map(e => e.date));
 
-  document.getElementById('statTotal').textContent   = entries.length;
-  document.getElementById('statCrisis').textContent  = entries.filter(e => e.intensity >= 8).length;
+  document.getElementById('statTotal').textContent = allDays.size;
 
+  // Days with BOTH periods
+  const byDate = {};
+  entries.forEach(e => {
+    if (!byDate[e.date]) byDate[e.date] = new Set();
+    byDate[e.date].add(e.period);
+  });
+  const fullDays = Object.values(byDate).filter(s => s.has('manana') && s.has('noche')).length;
+  document.getElementById('statCrisis').textContent = fullDays;
+
+  // This week
   const weekAgo = Date.now() - 7 * 864e5;
-  document.getElementById('statWeek').textContent = entries.filter(e => +new Date(e.timestamp) > weekAgo).length;
+  const weekEntries = entries.filter(e => +new Date(e.timestamp) > weekAgo);
+  const weekDays = new Set(weekEntries.map(e => e.date));
+  document.getElementById('statWeek').textContent = weekDays.size;
 
-  if (entries.length) {
-    const avg = entries.reduce((s, e) => s + e.intensity, 0) / entries.length;
+  // Average emotional score from morning entries
+  const mananaEntries = entries.filter(e => e.period === 'manana' && e.emocion);
+  if (mananaEntries.length) {
+    const avg = mananaEntries.reduce((s, e) => s + e.emocion, 0) / mananaEntries.length;
     document.getElementById('statAvg').textContent = avg.toFixed(1);
   } else {
     document.getElementById('statAvg').textContent = '—';
   }
 
-  // Emotion frequency bars
-  const eCounts = {};
-  entries.forEach(e => { eCounts[e.emotion] = (eCounts[e.emotion] || 0) + 1; });
-  const eMax    = Math.max(...Object.values(eCounts), 1);
-  const eSorted = Object.entries(eCounts).sort((a, b) => b[1] - a[1]);
-
-  document.getElementById('emotionBars').innerHTML = eSorted.length
-    ? eSorted.map(([em, n]) => {
-        const meta = EMOTIONS[em] || { icon: '💭', color: '#7c6cfc' };
-        return `
-          <div class="bar-row">
-            <div class="bar-label">${meta.icon} ${em}</div>
-            <div class="bar-track"><div class="bar-fill" style="width:${(n/eMax)*100}%;background:${meta.color}"></div></div>
-            <div class="bar-count">${n}</div>
-          </div>`;
+  // Sleep bars (last 7 manana entries)
+  const sleepEntries = entries.filter(e => e.period === 'manana' && e.sueno).slice(0, 7).reverse();
+  document.getElementById('sleepBars').innerHTML = sleepEntries.length
+    ? sleepEntries.map(e => {
+        const label = new Date(e.date + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' });
+        const pct = (e.sueno / 10) * 100;
+        const color = e.sueno <= 3 ? '#db2777' : e.sueno <= 6 ? '#7c3aed' : '#059669';
+        return `<div class="bar-row">
+          <div class="bar-label">${label}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>
+          <div class="bar-count">${e.sueno}/10</div>
+        </div>`;
       }).join('')
     : '<p style="color:var(--muted);font-size:14px;">Sin datos aún</p>';
 
-  // Trigger bars
-  const tCounts = {};
-  entries.filter(e => e.trigger).forEach(e => { tCounts[e.trigger] = (tCounts[e.trigger] || 0) + 1; });
-  const tMax    = Math.max(...Object.values(tCounts), 1);
-  const tSorted = Object.entries(tCounts).sort((a, b) => b[1] - a[1]).slice(0, 6);
-
-  document.getElementById('triggerBars').innerHTML = tSorted.length
-    ? tSorted.map(([tr, n]) => `
-        <div class="bar-row">
-          <div class="bar-label" style="font-size:11px;">${tr}</div>
-          <div class="bar-track"><div class="bar-fill" style="width:${(n/tMax)*100}%;background:var(--crisis)"></div></div>
-          <div class="bar-count">${n}</div>
-        </div>`).join('')
+  // Energy bars (last 7 manana entries)
+  const energyEntries = entries.filter(e => e.period === 'manana' && e.energia).slice(0, 7).reverse();
+  document.getElementById('energyBars').innerHTML = energyEntries.length
+    ? energyEntries.map(e => {
+        const label = new Date(e.date + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' });
+        const pct = (e.energia / 10) * 100;
+        const color = e.energia <= 3 ? '#db2777' : e.energia <= 6 ? '#7c3aed' : '#059669';
+        return `<div class="bar-row">
+          <div class="bar-label">${label}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>
+          <div class="bar-count">${e.energia}/10</div>
+        </div>`;
+      }).join('')
     : '<p style="color:var(--muted);font-size:14px;">Sin datos aún</p>';
 
-  // Average intensity per emotion
-  const eIntensity = {};
-  const eCnt2      = {};
-  entries.forEach(e => {
-    eIntensity[e.emotion] = (eIntensity[e.emotion] || 0) + e.intensity;
-    eCnt2[e.emotion]      = (eCnt2[e.emotion]      || 0) + 1;
-  });
-  const eAvg = Object.keys(eIntensity).map(k => [k, eIntensity[k] / eCnt2[k]]);
-  eAvg.sort((a, b) => b[1] - a[1]);
-
-  document.getElementById('intensityBars').innerHTML = eAvg.length
-    ? eAvg.map(([em, avg]) => {
-        const meta = EMOTIONS[em] || { icon: '💭', color: '#7c6cfc' };
-        const c    = intensityColor(Math.round(avg));
-        return `
-          <div class="bar-row">
-            <div class="bar-label">${meta.icon} ${em}</div>
-            <div class="bar-track"><div class="bar-fill" style="width:${(avg/10)*100}%;background:${c}"></div></div>
-            <div class="bar-count">${avg.toFixed(1)}</div>
-          </div>`;
+  // Emotion bars (last 7 manana entries)
+  const emotionEntries = entries.filter(e => e.period === 'manana' && e.emocion).slice(0, 7).reverse();
+  document.getElementById('emotionBars').innerHTML = emotionEntries.length
+    ? emotionEntries.map(e => {
+        const label = new Date(e.date + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' });
+        const pct = (e.emocion / 10) * 100;
+        const color = e.emocion <= 3 ? '#db2777' : e.emocion <= 6 ? '#7c3aed' : '#059669';
+        return `<div class="bar-row">
+          <div class="bar-label">${label}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>
+          <div class="bar-count">${e.emocion}/10</div>
+        </div>`;
       }).join('')
     : '<p style="color:var(--muted);font-size:14px;">Sin datos aún</p>';
 }
@@ -271,7 +404,6 @@ function closeCrisis() {
 
 // ── Breathing (4-4-6 cycle) ───────────────────────────────────
 let breathTimer   = null;
-let breathPhase   = null;
 let breathSeconds = 0;
 
 const PHASES = [
@@ -298,9 +430,9 @@ function runPhase() {
   const instr   = document.getElementById('breathInstruction');
   const counter = document.getElementById('breathCounter');
 
-  circle.className = 'breath-circle ' + p.name;
-  circle.textContent = '';
-  instr.textContent  = p.label;
+  circle.className    = 'breath-circle ' + p.name;
+  circle.textContent  = '';
+  instr.textContent   = p.label;
   counter.textContent = breathSeconds;
 
   breathTimer = setInterval(() => {
@@ -412,795 +544,336 @@ function renderImpulse() {
   document.getElementById('impulseFill').style.width = `${(impulseRemaining / TOTAL_IMPULSE) * 100}%`;
 }
 
-// ── Header clock ──────────────────────────────────────────────
-function updateClock() {
-  document.getElementById('headerTime').textContent =
-    new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-}
-
-// ── Greeting ──────────────────────────────────────────────────
-function setGreeting() {
-  const h = new Date().getHours();
-  const g = h < 6 ? 'Buenas noches' : h < 12 ? 'Buenos días' : h < 20 ? 'Buenas tardes' : 'Buenas noches';
-  document.getElementById('greeting').textContent = g;
-}
-
-// ── Notifications ─────────────────────────────────────────────
-const NOTIF_KEY    = 'tlp_notif_time';
-const NOTIF_SHOWN  = 'tlp_notif_shown_date';
+// ── Notifications (DUAL: morning + night) ─────────────────────
+const NOTIF_KEY_MORNING = 'tlp_notif_morning';
+const NOTIF_KEY_NIGHT   = 'tlp_notif_night';
 
 function notifSupported() {
   return 'Notification' in window;
 }
 
-function initNotifUI() {
-  if (!notifSupported()) return;
+function scheduleAllNotifs() {
+  if (Notification.permission !== 'granted') return;
+  scheduleSingleNotif(localStorage.getItem(NOTIF_KEY_MORNING) || '08:00', 'morning');
+  scheduleSingleNotif(localStorage.getItem(NOTIF_KEY_NIGHT)   || '21:00', 'night');
+}
 
-  const perm      = Notification.permission;
-  const banner    = document.getElementById('notifBanner');
-  const settings  = document.getElementById('notifSettings');
-  const timeInput = document.getElementById('notifTimeInput');
+function scheduleSingleNotif(timeStr, type) {
+  const [h, m] = timeStr.split(':').map(Number);
+  const now = new Date(), target = new Date(now);
+  target.setHours(h, m, 0, 0);
+  if (target <= now) target.setDate(target.getDate() + 1);
+  setTimeout(() => {
+    fireNotif(type);
+    setInterval(() => fireNotif(type), 24 * 60 * 60 * 1000);
+  }, target - now);
+}
 
-  if (perm === 'default') {
-    banner.style.display = 'flex';
-  } else if (perm === 'granted') {
-    banner.style.display = 'none';
-    settings.style.display = 'flex';
-    const saved = localStorage.getItem(NOTIF_KEY) || '20:00';
-    timeInput.value = saved;
-    updateNotifDesc(saved);
+function fireNotif(type) {
+  if (Notification.permission !== 'granted') return;
+  const already = MapaDB.getTodayEntry(type === 'morning' ? 'manana' : 'noche');
+  if (!already) {
+    new Notification('Mi Mapa Emocional 💜', {
+      body: type === 'morning'
+        ? '🌸 Buenos días — ¿Cómo amaneciste hoy? Completa tu mapa matutino.'
+        : '🌙 Buenas noches — ¿Cómo fue tu día? Completa tu mapa nocturno.',
+      tag: 'mapa-' + type,
+    });
   }
 }
 
-function updateNotifDesc(time) {
-  document.getElementById('notifSettingsDesc').textContent = `Recordatorio a las ${time}`;
+function initNotifUI() {
+  if (!notifSupported()) return;
+
+  const perm   = Notification.permission;
+  const banner = document.getElementById('notifBanner');
+  const times  = document.getElementById('notifTimes');
+
+  if (perm === 'default') {
+    banner.style.display = 'flex';
+    times.style.display  = 'none';
+  } else if (perm === 'granted') {
+    banner.style.display = 'none';
+    times.style.display  = 'block';
+    document.getElementById('notifMorningInput').value =
+      localStorage.getItem(NOTIF_KEY_MORNING) || '08:00';
+    document.getElementById('notifNightInput').value =
+      localStorage.getItem(NOTIF_KEY_NIGHT) || '21:00';
+  } else {
+    // denied
+    banner.style.display = 'none';
+    times.style.display  = 'none';
+  }
 }
 
 document.getElementById('notifEnableBtn').addEventListener('click', async () => {
   if (!notifSupported()) return;
   const perm = await Notification.requestPermission();
   if (perm === 'granted') {
-    localStorage.setItem(NOTIF_KEY, '20:00');
+    localStorage.setItem(NOTIF_KEY_MORNING, '08:00');
+    localStorage.setItem(NOTIF_KEY_NIGHT, '21:00');
     initNotifUI();
-    showToast('🔔 Recordatorio activado a las 20:00');
-    scheduleNotifCheck();
+    showToast('🔔 Recordatorios activados: 8:00 y 21:00');
+    scheduleAllNotifs();
   } else {
     showToast('Permiso denegado. Actívalo en ajustes del navegador.');
   }
 });
 
-document.getElementById('notifTimeInput').addEventListener('change', e => {
-  localStorage.setItem(NOTIF_KEY, e.target.value);
-  updateNotifDesc(e.target.value);
-  showToast(`🔔 Recordatorio actualizado a las ${e.target.value}`);
+document.getElementById('notifMorningInput').addEventListener('change', e => {
+  localStorage.setItem(NOTIF_KEY_MORNING, e.target.value);
+  showToast(`☀️ Recordatorio mañana: ${e.target.value}`);
 });
 
-function scheduleNotifCheck() {
-  const savedTime = localStorage.getItem(NOTIF_KEY) || '20:00';
-  const [h, m]   = savedTime.split(':').map(Number);
-  const now       = new Date();
-  const target    = new Date(now);
-  target.setHours(h, m, 0, 0);
-  if (target <= now) target.setDate(target.getDate() + 1);
-
-  const msUntil = target - now;
-  setTimeout(() => {
-    fireReminder();
-    setInterval(fireReminder, 24 * 60 * 60 * 1000);
-  }, msUntil);
-}
-
-function fireReminder() {
-  if (Notification.permission !== 'granted') return;
-  const today   = new Date().toISOString().slice(0, 10);
-  const entries = DB.load();
-  const hasToday = entries.some(e => e.timestamp.startsWith(today));
-  if (!hasToday) {
-    new Notification('TLP Diario', {
-      body: '¿Cómo te sientes hoy? Tómate un momento para registrarlo.',
-      icon: '/manifest.json',
-      badge: '/manifest.json',
-      tag: 'daily-reminder',
-    });
-  }
-}
-
-function checkMissedToday() {
-  if (Notification.permission !== 'granted') return;
-  const today       = new Date().toISOString().slice(0, 10);
-  const lastShown   = localStorage.getItem(NOTIF_SHOWN);
-  if (lastShown === today) return;
-
-  const entries    = DB.load();
-  const hasToday   = entries.some(e => e.timestamp.startsWith(today));
-  const h          = new Date().getHours();
-  if (!hasToday && h >= 12) {
-    showToast('📝 Aún no has registrado nada hoy');
-    localStorage.setItem(NOTIF_SHOWN, today);
-  }
-}
+document.getElementById('notifNightInput').addEventListener('change', e => {
+  localStorage.setItem(NOTIF_KEY_NIGHT, e.target.value);
+  showToast(`🌙 Recordatorio noche: ${e.target.value}`);
+});
 
 // ── Service worker registration ───────────────────────────────
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
 
-// ── Voice Diary ───────────────────────────────────────────────
-let voiceRecorder  = null;
-let voiceStream    = null;
-let voiceRecTimerId = null;
-let voiceSeconds   = 0;
-
-const voiceRecordBtn   = document.getElementById('voiceRecordBtn');
-const voiceRecordLabel = document.getElementById('voiceRecordLabel');
-const voiceTimerEl     = document.getElementById('voiceTimer');
-const voiceTranscript  = document.getElementById('voiceTranscript');
-const analyzeBtn       = document.getElementById('analyzeBtn');
-
-// Speech Recognition
-let speechRec   = null;
-let speechFinal = '';
-
-function initSpeechRec() {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) return;
-  speechRec = new SR();
-  speechRec.continuous     = true;
-  speechRec.interimResults = true;
-  speechRec.lang           = 'es-ES';
-
-  speechRec.onresult = e => {
-    let interim = '';
-    for (let i = e.resultIndex; i < e.results.length; i++) {
-      if (e.results[i].isFinal) speechFinal += e.results[i][0].transcript + ' ';
-      else interim = e.results[i][0].transcript;
-    }
-    voiceTranscript.value = speechFinal + interim;
-    checkAnalyzable();
-  };
-  speechRec.onerror = e => { if (e.error !== 'no-speech') console.warn('SR:', e.error); };
-}
-
-function checkAnalyzable() {
-  const ok = voiceTranscript.value.trim().length >= 10;
-  analyzeBtn.style.opacity      = ok ? '1' : '.4';
-  analyzeBtn.style.pointerEvents = ok ? 'auto' : 'none';
-}
-
-voiceTranscript.addEventListener('input', checkAnalyzable);
-
-voiceRecordBtn.addEventListener('click', async () => {
-  if (voiceRecorder && voiceRecorder.state !== 'inactive') {
-    stopVoiceRecording();
-  } else {
-    await startVoiceRecording();
-  }
-});
-
-async function startVoiceRecording() {
-  try {
-    voiceStream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true }
-    });
-  } catch {
-    showToast('Permiso de micrófono denegado. Actívalo en ajustes.');
-    return;
-  }
-
-  speechFinal = '';
-  voiceTranscript.value = '';
-  voiceSeconds = 0;
-  checkAnalyzable();
-
-  voiceRecorder = new MediaRecorder(voiceStream);
-  voiceRecorder.start(500);
-
-  voiceRecordBtn.classList.add('active');
-  voiceRecordLabel.textContent = 'Parar';
-  voiceTimerEl.style.opacity   = '1';
-
-  voiceRecTimerId = setInterval(() => {
-    voiceSeconds++;
-    const m = Math.floor(voiceSeconds / 60).toString().padStart(2, '0');
-    const s = (voiceSeconds % 60).toString().padStart(2, '0');
-    voiceTimerEl.textContent = `${m}:${s}`;
-  }, 1000);
-
-  if (speechRec) { try { speechRec.start(); } catch {} }
-}
-
-function stopVoiceRecording() {
-  if (voiceRecorder?.state !== 'inactive') voiceRecorder?.stop();
-  if (speechRec) { try { speechRec.stop(); } catch {} }
-  if (voiceStream) voiceStream.getTracks().forEach(t => t.stop());
-
-  clearInterval(voiceRecTimerId);
-  voiceRecordBtn.classList.remove('active');
-  voiceRecordLabel.textContent = 'Grabar';
-  voiceTimerEl.style.opacity   = '0';
-
-  if (!voiceTranscript.value.trim() && voiceSeconds > 2) {
-    showToast('Escribe tu diario manualmente si prefires');
-  }
-  checkAnalyzable();
-}
-
-// ── Local keyword analysis (fallback) ─────────────────────────
-const KW = {
-  ansiedad:           ['ansiedad','ansioso','ansiosa','nervioso','nerviosa','agitado','tenso','preocupado','angustia','angustiado','agobia'],
-  ira:                ['ira','rabia','enfadado','enfadada','furioso','furiosa','odio','exploto','explosión','enojo','enojado'],
-  tristeza:           ['triste','tristeza','llorar','lloro','llorando','deprimido','vacío','nada','sin ganas'],
-  'miedo al abandono':['abandonado','sola','solo','nadie','rechazo','rechazado','rechazada','me dejaron','me dejó','me fui'],
-  impulsividad:       ['no pude','actué','impulso','sin pensar','arrepiento','arrepentida','hice algo','me arrepiento'],
-  disociación:        ['desconectado','desconectada','no soy yo','irreal','extraño','confuso','nublado','como si','flotando'],
-  calma:              ['bien','tranquilo','tranquila','calmado','mejor','feliz','contento','paz','alegría','descansado'],
-};
-
-const EXERCISES_LOCAL = {
-  ansiedad:           { nombre:'Respiración 4-4-6', descripcion:'Activa el sistema parasimpático y reduce la activación.', pasos:['Inhala lentamente 4 segundos','Mantén 4 segundos','Exhala despacio 6 segundos — repite 5 veces'] },
-  ira:                { nombre:'TIP — Temperatura', descripcion:'Baja la activación fisiológica rápidamente.', pasos:['Pon agua fría en la cara 30 segundos','O sostén hielo en las manos','Respira despacio mientras lo haces'] },
-  tristeza:           { nombre:'Autocompasión activa', descripcion:'Trata tus emociones con amabilidad y sin juicio.', pasos:['Pon una mano en el pecho','Di: "Es normal sentir esto"','Pregunta: ¿qué necesito ahora?'] },
-  'miedo al abandono':{ nombre:'Grounding 5-4-3-2-1', descripcion:'Ancla tu atención al momento presente seguro.', pasos:['5 cosas que puedes VER','4 que puedes TOCAR','3 que oyes, 2 que hueles, 1 que saboreas'] },
-  impulsividad:       { nombre:'STOP + Timer 10 min', descripcion:'Pausa antes de actuar desde el impulso.', pasos:['Para lo que estás haciendo','Activa el temporizador de 10 minutos','Decide con calma cuando acabe'] },
-  disociación:        { nombre:'Grounding físico', descripcion:'Reconecta con el cuerpo y el entorno.', pasos:['Pisa el suelo con fuerza varias veces','Frota las palmas hasta sentir calor','Nombra 5 objetos que ves ahora mismo'] },
-  calma:              { nombre:'Consolidar el momento', descripcion:'Ancla esta experiencia positiva en la memoria.', pasos:['Observa qué generó esta calma','Respira y disfruta el momento','Anota qué lo hizo posible'] },
-};
-
-const AUDIO_MAP = {
-  ansiedad: 'calma', ira: 'regulacion', tristeza: 'calma',
-  'miedo al abandono': 'equilibrio', impulsividad: 'respiracion',
-  disociación: 'equilibrio', calma: 'calma',
-};
-
-function analyzeLocally(text) {
-  const lower = text.toLowerCase();
-  const found = {};
-  for (const [emotion, words] of Object.entries(KW)) {
-    const hits = words.filter(w => lower.includes(w));
-    if (hits.length) found[emotion] = hits.length;
-  }
-  const sorted   = Object.entries(found).sort((a, b) => b[1] - a[1]);
-  const emotions = sorted.map(([e]) => e).slice(0, 3);
-  const primary  = emotions[0] || 'ansiedad';
-  const intensity = Math.min(10, Math.max(1, sorted.reduce((s, [, n]) => s + n, 0) * 2 + 2));
-
-  return {
-    emociones: emotions.length ? emotions : ['neutro'],
-    keywords:  sorted.flatMap(([e]) => KW[e] ? KW[e].filter(w => lower.includes(w)).slice(0,2) : []).slice(0,5),
-    intensidad: intensity,
-    insight:   emotions.length
-      ? `Tu relato refleja principalmente ${primary}. Reconocer esto es el primer paso para regularte.`
-      : 'Tu diario muestra una experiencia variada. Bien por tomarte este espacio.',
-    ejercicio: EXERCISES_LOCAL[primary] || EXERCISES_LOCAL.ansiedad,
-    audio_recomendado: AUDIO_MAP[primary] || 'calma',
-    source: 'local',
-  };
-}
-
-// ── AI Analysis ───────────────────────────────────────────────
-let lastAnalysis = null;
-
-analyzeBtn.addEventListener('click', async () => {
-  const transcript = voiceTranscript.value.trim();
-  if (!transcript) return;
-
-  analyzeBtn.textContent        = '⌛ Analizando…';
-  analyzeBtn.style.opacity      = '.6';
-  analyzeBtn.style.pointerEvents = 'none';
-
-  let result;
-  try {
-    const res = await fetch('/api/analyze', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ transcript }),
-    });
-    if (!res.ok) throw new Error('http ' + res.status);
-    result = await res.json();
-    if (result.error) throw new Error(result.error);
-  } catch {
-    result = analyzeLocally(transcript);
-  }
-
-  lastAnalysis = { ...result, transcript, timestamp: new Date().toISOString() };
-  renderAnalysis(result);
-
-  analyzeBtn.textContent        = '🤖 Analizar de nuevo';
-  analyzeBtn.style.opacity      = '1';
-  analyzeBtn.style.pointerEvents = 'auto';
-});
-
-function renderAnalysis(r) {
-  // Emotion tags
-  document.getElementById('aiEmotionTags').innerHTML =
-    (r.emociones || []).map(e => {
-      const m = EMOTIONS[e.toLowerCase()] || { icon: '💭' };
-      return `<span class="e-tag">${m.icon} ${e}</span>`;
-    }).join('');
-
-  // Intensity
-  const v = r.intensidad || 5;
-  document.getElementById('aiIntensityLabel').textContent = `Intensidad estimada: ${v}/10`;
-  document.getElementById('aiIntensityBar').style.width      = `${v * 10}%`;
-  document.getElementById('aiIntensityBar').style.background = intensityColor(v);
-
-  // Insight
-  document.getElementById('aiInsight').textContent = r.insight || '';
-
-  // Exercise
-  const ex = r.ejercicio || {};
-  document.getElementById('exerciseName').textContent = ex.nombre || '';
-  document.getElementById('exerciseDesc').textContent = ex.descripcion || '';
-  document.getElementById('exerciseSteps').innerHTML  =
-    (ex.pasos || []).map(p => `<li>${escHtml(p)}</li>`).join('');
-
-  // Recommended audio
-  if (r.audio_recomendado) {
-    const LABELS = { calma:'Calma Alpha 432Hz', equilibrio:'Equilibrio 528Hz', regulacion:'Regulación Theta', respiracion:'Respiración guiada' };
-    const btn = document.getElementById('audioRecBtn');
-    btn.textContent    = `▶ ${LABELS[r.audio_recomendado] || 'Audio terapéutico'}`;
-    btn.dataset.prog   = r.audio_recomendado;
-    btn.onclick = () => {
-      therapyAudio.toggle(r.audio_recomendado);
-      btn.textContent = therapyAudio.isPlaying(r.audio_recomendado)
-        ? '⏹ Parar audio'
-        : `▶ ${LABELS[r.audio_recomendado]}`;
-    };
-    document.getElementById('audioRec').style.display = 'block';
-  }
-
-  // Source note
-  document.getElementById('aiSourceNote').textContent =
-    r.source === 'claude' ? 'Análisis por Claude (Anthropic)' : 'Análisis local · configura ANTHROPIC_API_KEY en Vercel para IA completa';
-
-  document.getElementById('aiResults').style.display  = 'block';
-  document.getElementById('saveVoiceBtn').style.display = 'block';
-  setTimeout(() => document.getElementById('aiResults').scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
-}
-
-document.getElementById('saveVoiceBtn').addEventListener('click', () => {
-  if (!lastAnalysis) return;
-  const emotion = (lastAnalysis.emociones || [])[0] || 'vacío';
-  DB.save({
-    emotion,
-    intensity: lastAnalysis.intensidad || 5,
-    trigger:   '',
-    notes:     `[Diario de voz] ${lastAnalysis.transcript.slice(0, 200)}`,
-    voiceDiary: true,
-  });
-  showToast('✓ Guardado en historial');
-  document.getElementById('saveVoiceBtn').style.display = 'none';
-  updateStreak();
-});
-
-// ── Therapy Audio (Web Audio API) ─────────────────────────────
-const therapyAudio = (() => {
-  let ctx = null;
-  let currentProg = null;
-  let nodes = [];
-  let masterGain = null;
-
-  function getCtx() {
-    if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
-    return ctx;
-  }
-
-  const PROGRAMS = {
-    calma: {
-      label: 'Calma Alpha',
-      build(c, master) {
-        // 3 detuned oscillators → rich pad + 10Hz LFO (alpha entrainment)
-        [[432, .25], [432.7, .18], [431.3, .18]].forEach(([f, g]) => {
-          const o = c.createOscillator(), gain = c.createGain();
-          o.type = 'sine'; o.frequency.value = f; gain.gain.value = g;
-          o.connect(gain); gain.connect(master); o.start();
-          nodes.push(o, gain);
-        });
-        addLFO(c, master, 10, .15);
-      }
-    },
-    equilibrio: {
-      label: 'Equilibrio 528Hz',
-      build(c, master) {
-        [[528, .25], [527.4, .18], [528.6, .18]].forEach(([f, g]) => {
-          const o = c.createOscillator(), gain = c.createGain();
-          o.type = 'sine'; o.frequency.value = f; gain.gain.value = g;
-          o.connect(gain); gain.connect(master); o.start();
-          nodes.push(o, gain);
-        });
-        addLFO(c, master, 2.5, .1);
-      }
-    },
-    regulacion: {
-      label: 'Regulación Theta',
-      build(c, master) {
-        [[396, .28], [395.4, .18]].forEach(([f, g]) => {
-          const o = c.createOscillator(), gain = c.createGain();
-          o.type = 'sine'; o.frequency.value = f; gain.gain.value = g;
-          o.connect(gain); gain.connect(master); o.start();
-          nodes.push(o, gain);
-        });
-        addLFO(c, master, 6, .2);
-      }
-    },
-    respiracion: {
-      label: 'Respiración guiada',
-      build(c, master) {
-        const o = c.createOscillator();
-        o.type = 'sine'; o.frequency.value = 200;
-        o.connect(master); o.start();
-        nodes.push(o);
-        // Rising/falling tone: inhale 4s → hold 4s → exhale 6s
-        let t = c.currentTime + .1;
-        const cycle = () => {
-          if (!nodes.includes(o)) return;
-          o.frequency.setValueAtTime(200, t);
-          o.frequency.linearRampToValueAtTime(370, t + 4);   // inhale
-          o.frequency.setValueAtTime(370, t + 8);             // hold
-          o.frequency.linearRampToValueAtTime(200, t + 14);  // exhale
-          t += 14;
-          setTimeout(cycle, (t - c.currentTime - 1) * 1000);
-        };
-        cycle();
-      }
-    },
-  };
-
-  function addLFO(c, master, freq, depth) {
-    const lfo = c.createOscillator(), lfoG = c.createGain();
-    lfo.type = 'sine'; lfo.frequency.value = freq; lfoG.gain.value = depth;
-    lfo.connect(lfoG); lfoG.connect(master.gain);
-    lfo.start(); nodes.push(lfo, lfoG);
-  }
-
-  function stop() {
-    if (!masterGain || !ctx) return;
-    masterGain.gain.linearRampToValueAtTime(0, ctx.currentTime + 1.2);
-    const snapshot = [...nodes];
-    setTimeout(() => {
-      snapshot.forEach(n => { try { n.stop?.(); n.disconnect(); } catch {} });
-    }, 1300);
-    nodes = []; masterGain = null; currentProg = null;
-    updateAudioUI(null);
-  }
-
-  function play(progId) {
-    const prog = PROGRAMS[progId];
-    if (!prog) return;
-    const wasPlaying = !!currentProg;
-    stop();
-
-    setTimeout(() => {
-      const c = getCtx();
-      if (c.state === 'suspended') c.resume();
-      masterGain = c.createGain();
-      masterGain.gain.setValueAtTime(0, c.currentTime);
-      masterGain.gain.linearRampToValueAtTime(0.32, c.currentTime + 2);
-      masterGain.connect(c.destination);
-      nodes = [masterGain];
-      prog.build(c, masterGain);
-      currentProg = progId;
-      updateAudioUI(progId);
-    }, wasPlaying ? 1350 : 0);
-  }
-
-  function toggle(progId) {
-    currentProg === progId ? stop() : play(progId);
-  }
-
-  function isPlaying(progId) { return currentProg === progId; }
-
-  function updateAudioUI(progId) {
-    document.querySelectorAll('.audio-prog-btn').forEach(b =>
-      b.classList.toggle('playing', b.dataset.prog === progId)
-    );
-    const bar = document.getElementById('audioPlayerBar');
-    if (progId) {
-      document.getElementById('audioProgName').textContent =
-        PROGRAMS[progId]?.label || progId;
-      bar.style.display = 'flex';
-    } else {
-      bar.style.display = 'none';
-    }
-  }
-
-  // Wire crisis mode buttons
-  document.querySelectorAll('.audio-prog-btn').forEach(b =>
-    b.addEventListener('click', () => toggle(b.dataset.prog))
-  );
-  document.getElementById('audioStopBtn').addEventListener('click', stop);
-
-  // Stop audio when crisis overlay closes
-  document.getElementById('crisisClose').addEventListener('click', stop, { capture: true });
-
-  return { play, stop, toggle, isPlaying };
-})();
-
-// ── Supabase auth + cloud sync ────────────────────────────────
-const SupaDB = (() => {
-  let client   = null;
-  let userId   = null;
-  let authMode = 'login'; // 'login' | 'signup'
-
-  async function init() {
-    try {
-      const res = await fetch('/api/config');
-      if (!res.ok) return;
-      const { supabaseUrl, supabaseAnonKey } = await res.json();
-      if (!supabaseUrl || !supabaseAnonKey) return;
-
-      client = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
-
-      const { data: { session } } = await client.auth.getSession();
-      if (session) {
-        userId = session.user.id;
-        onLoggedIn(session.user);
-      } else {
-        showCloudBanner();
-      }
-
-      client.auth.onAuthStateChange((_e, session) => {
-        if (session) { userId = session.user.id; onLoggedIn(session.user); }
-        else          { userId = null; onLoggedOut(); }
-      });
-    } catch { /* Supabase not configured — local-only mode */ }
-  }
-
-  function onLoggedIn(user) {
-    const badge = document.getElementById('userBadge');
-    badge.style.display = 'block';
-    badge.textContent   = `☁️ ${user.email.split('@')[0]}`;
-    document.getElementById('cloudBanner').style.display = 'none';
-    closeAuthOverlay();
-    syncFromCloud();
-  }
-
-  function onLoggedOut() {
-    document.getElementById('userBadge').style.display = 'none';
-    showCloudBanner();
-  }
-
-  function showCloudBanner() {
-    document.getElementById('cloudBanner').style.display = 'flex';
-  }
-
-  function openAuthOverlay() {
-    document.getElementById('authOverlay').style.display = 'flex';
-  }
-
-  function closeAuthOverlay() {
-    document.getElementById('authOverlay').style.display = 'none';
-  }
-
-  async function saveEntry(entry) {
-    if (!client || !userId) return;
-    await client.from('mood_entries').upsert({
-      user_id:       userId,
-      local_id:      String(entry.id),
-      emotion:       entry.emotion,
-      intensity:     entry.intensity,
-      trigger_event: entry.trigger  || '',
-      notes:         entry.notes    || '',
-      voice_diary:   entry.voiceDiary || false,
-      created_at:    entry.timestamp,
-    }, { onConflict: 'local_id' }).catch(console.warn);
-  }
-
-  async function syncFromCloud() {
-    if (!client || !userId) return;
-    const { data, error } = await client
-      .from('mood_entries')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(500);
-
-    if (error || !data) return;
-
-    const cloud = data.map(e => ({
-      id:         e.local_id || e.id,
-      timestamp:  e.created_at,
-      emotion:    e.emotion,
-      intensity:  e.intensity,
-      trigger:    e.trigger_event,
-      notes:      e.notes,
-      voiceDiary: e.voice_diary,
-    }));
-
-    const local    = DB.load();
-    const cloudIds = new Set(cloud.map(e => String(e.id)));
-
-    // Upload local-only entries
-    const toUpload = local.filter(e => !cloudIds.has(String(e.id)));
-    for (const e of toUpload.slice(0, 30)) await saveEntry(e);
-
-    // Merge and persist
-    const merged = [...cloud, ...local.filter(e => !cloudIds.has(String(e.id)))]
-      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    localStorage.setItem(DB.KEY, JSON.stringify(merged.slice(0, 500)));
-    showToast('☁️ Sincronizado con la nube');
-    updateStreak();
-  }
-
-  // Auth UI wiring
-  document.getElementById('cloudBannerBtn').addEventListener('click', openAuthOverlay);
-  document.getElementById('userBadge').addEventListener('click', async () => {
-    if (!client) return;
-    await client.auth.signOut();
-    showToast('Sesión cerrada');
-  });
-  document.getElementById('authSkip').addEventListener('click', closeAuthOverlay);
-
-  document.getElementById('tabLogin').addEventListener('click', () => {
-    authMode = 'login';
-    document.getElementById('tabLogin').classList.add('active');
-    document.getElementById('tabSignup').classList.remove('active');
-    document.getElementById('authSubmit').textContent = 'Iniciar sesión';
-  });
-  document.getElementById('tabSignup').addEventListener('click', () => {
-    authMode = 'signup';
-    document.getElementById('tabSignup').classList.add('active');
-    document.getElementById('tabLogin').classList.remove('active');
-    document.getElementById('authSubmit').textContent = 'Crear cuenta';
-  });
-
-  document.getElementById('authSubmit').addEventListener('click', async () => {
-    if (!client) return;
-    const email    = document.getElementById('authEmail').value.trim();
-    const password = document.getElementById('authPassword').value;
-    const errorEl  = document.getElementById('authError');
-    errorEl.style.display = 'none';
-
-    if (!email || !password) {
-      errorEl.textContent = 'Introduce email y contraseña';
-      errorEl.style.display = 'block';
-      return;
-    }
-
-    document.getElementById('authSubmit').textContent = '⌛ Espera…';
-    try {
-      if (authMode === 'signup') {
-        const { error } = await client.auth.signUp({ email, password });
-        if (error) throw error;
-        showToast('✓ Cuenta creada — revisa tu email para confirmar');
-        closeAuthOverlay();
-      } else {
-        const { error } = await client.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-      }
-    } catch (e) {
-      errorEl.textContent = e.message || 'Error de autenticación';
-      errorEl.style.display = 'block';
-      document.getElementById('authSubmit').textContent =
-        authMode === 'signup' ? 'Crear cuenta' : 'Iniciar sesión';
-    }
-  });
-
-  return { init, saveEntry, syncFromCloud };
-})();
-
-// Patch DB.save to background-sync to cloud
-const _originalSave = DB.save.bind(DB);
-DB.save = function(entry) {
-  const saved = _originalSave(entry);
-  SupaDB.saveEntry(saved);
-  return saved;
-};
-
-// ── Heatmap ───────────────────────────────────────────────────
-function renderHeatmap(entries) {
-  const SLOTS = [
-    { label:'🌙 Madrugada (0–6h)',  hours:[0,1,2,3,4,5],      color:'rgba(124,108,252,' },
-    { label:'☀️ Mañana (6–12h)',     hours:[6,7,8,9,10,11],     color:'rgba(245,158,11,' },
-    { label:'🌤️ Tarde (12–18h)',     hours:[12,13,14,15,16,17], color:'rgba(239,68,68,'  },
-    { label:'🌆 Noche (18–24h)',     hours:[18,19,20,21,22,23], color:'rgba(20,184,166,' },
-  ];
-
-  const counts = SLOTS.map(s => ({
-    ...s,
-    count: entries.filter(e => s.hours.includes(new Date(e.timestamp).getHours())).length,
-  }));
-  const max = Math.max(...counts.map(s => s.count), 1);
-
-  document.getElementById('heatmapGrid').innerHTML = counts.map(s => `
-    <div class="heatmap-row">
-      <div class="heatmap-label">${s.label}</div>
-      <div class="heatmap-bar">
-        <div class="heatmap-fill" style="width:${(s.count/max)*100}%;background:${s.color}0.75)"></div>
-      </div>
-      <div class="heatmap-count">${s.count}</div>
-    </div>
-  `).join('');
-}
-
-// ── Weekly summary ─────────────────────────────────────────────
-document.getElementById('weeklySummaryBtn').addEventListener('click', async () => {
-  const btn     = document.getElementById('weeklySummaryBtn');
-  const content = document.getElementById('weeklySummaryContent');
-
-  const weekAgo  = Date.now() - 7 * 864e5;
-  const entries  = DB.load().filter(e => +new Date(e.timestamp) > weekAgo);
-
-  if (entries.length < 2) {
-    content.textContent = 'Necesitas al menos 2 registros esta semana para generar un resumen.';
-    return;
-  }
-
-  btn.textContent = '⌛ Analizando…';
-  btn.style.pointerEvents = 'none';
-
-  const summary = entries.map(e =>
-    `${new Date(e.timestamp).toLocaleDateString('es-ES',{weekday:'short',hour:'2-digit',minute:'2-digit'})}: ${e.emotion} (${e.intensity}/10)${e.trigger ? ' — ' + e.trigger : ''}${e.notes ? ' | ' + e.notes.slice(0,60) : ''}`
-  ).join('\n');
-
-  let result;
-  try {
-    const res = await fetch('/api/weekly-summary', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ summary, count: entries.length }),
-    });
-    if (!res.ok) throw new Error('http ' + res.status);
-    result = await res.json();
-    if (result.error) throw new Error(result.error);
-  } catch {
-    result = generateLocalWeeklySummary(entries);
-  }
-
-  content.innerHTML = `
-    <div class="weekly-insight">${escHtml(result.insight)}</div>
-    ${result.patron ? `<p><strong>Patrón detectado:</strong> ${escHtml(result.patron)}</p>` : ''}
-    ${result.progreso ? `<p style="margin-top:8px"><strong>Progreso:</strong> ${escHtml(result.progreso)}</p>` : ''}
-    ${result.ejercicio ? `
-      <div class="weekly-exercise-box">
-        <div class="weekly-exercise-title">💡 Para esta semana: ${escHtml(result.ejercicio.nombre)}</div>
-        <ol class="weekly-exercise-steps">
-          ${(result.ejercicio.pasos || []).map(p => `<li>${escHtml(p)}</li>`).join('')}
-        </ol>
-      </div>
-    ` : ''}
-    <div class="weekly-meta">
-      ${entries.length} registros · ${result.source === 'claude' ? 'Claude (Anthropic)' : 'análisis local'}
-    </div>
-  `;
-
-  btn.textContent = '🔄 Actualizar';
-  btn.style.pointerEvents = 'auto';
-});
-
-function generateLocalWeeklySummary(entries) {
-  const eCounts = {};
-  entries.forEach(e => { eCounts[e.emotion] = (eCounts[e.emotion] || 0) + 1; });
-  const top     = Object.entries(eCounts).sort((a, b) => b[1] - a[1])[0] || ['neutro', 0];
-  const avgInt  = (entries.reduce((s, e) => s + e.intensity, 0) / entries.length).toFixed(1);
-  const highDays = entries.filter(e => e.intensity >= 8).length;
-
-  return {
-    insight:  `Esta semana registraste ${entries.length} entradas con una intensidad promedio de ${avgInt}/10. La emoción dominante fue ${top[0]}.`,
-    patron:   highDays > 2 ? `${highDays} episodios de intensidad alta (≥8) — considera hablar con tu terapeuta.` : null,
-    progreso: avgInt < 6 ? 'La intensidad promedio está en rango moderado-bajo. ¡Buen trabajo!' : null,
-    ejercicio: { nombre: 'Revisión semanal', pasos: ['Identifica qué situaciones dispararon más intensidad', 'Elige una habilidad DBT para practicar esta semana', 'Comparte el historial con tu terapeuta si lo tienes'] },
-    source:   'local',
-  };
-}
-
-// Patch renderStats to include heatmap
-const _originalRenderStats = renderStats;
-function renderStats() {
-  _originalRenderStats();
-  renderHeatmap(DB.load());
-}
-
 // ── Init ──────────────────────────────────────────────────────
+buildScaleRow('scaleSueno',   'scaleSueno');
+buildScaleRow('scaleEnergia', 'scaleEnergia');
+buildScaleRow('scaleEmocion', 'scaleEmocion');
 setGreeting();
 updateClock();
 setInterval(updateClock, 30000);
+updateCompletionBadges();
 updateStreak();
 renderImpulse();
 initNotifUI();
-checkMissedToday();
-initSpeechRec();
-SupaDB.init();
+
+// Auto-switch to night form if it's after 18:00
+if (new Date().getHours() >= 18) {
+  switchPeriod('noche');
+} else {
+  loadMananaForm();
+}
+
 if (notifSupported() && Notification.permission === 'granted') {
-  scheduleNotifCheck();
+  scheduleAllNotifs();
+}
+
+// ── Voice diary ───────────────────────────────────────────────
+(function initVoz() {
+  let mediaRecorder = null;
+  let audioChunks   = [];
+  let isRecording   = false;
+  let recognition   = null;
+  let transcript    = '';
+
+  const recordBtn    = document.getElementById('vozRecordBtn');
+  const micIcon      = document.getElementById('vozMicIcon');
+  const stopIcon     = document.getElementById('vozStopIcon');
+  const statusText   = document.getElementById('vozStatusText');
+  const transcriptEl = document.getElementById('vozTranscript');
+  const fallbackEl   = document.getElementById('vozFallback');
+  const errorEl      = document.getElementById('vozError');
+  const copyBtn      = document.getElementById('vozCopyBtn');
+  const clearBtn     = document.getElementById('vozClearBtn');
+
+  // Check Web Speech API support
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRec && fallbackEl) fallbackEl.style.display = 'block';
+
+  function setupSpeechRecognition() {
+    if (!SpeechRec) return null;
+    const rec = new SpeechRec();
+    rec.lang = 'es-ES';
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.onresult = e => {
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) { transcript += t + ' '; }
+        else { interim = t; }
+      }
+      if (transcriptEl) transcriptEl.textContent = transcript + interim;
+    };
+    rec.onerror = err => {
+      if (err.error !== 'aborted' && err.error !== 'no-speech') {
+        if (fallbackEl) fallbackEl.style.display = 'block';
+      }
+    };
+    return rec;
+  }
+
+  async function startRecording() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      showError('Tu navegador no soporta grabación de audio. Usa Chrome o Safari.');
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunks = [];
+      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+      mediaRecorder.onstop = () => {
+        stream.getTracks().forEach(t => t.stop());
+        const clips = document.getElementById('vozClipsSection');
+        const list  = document.getElementById('vozClipsList');
+        if (audioChunks.length && clips && list) {
+          const blob = new Blob(audioChunks, { type: 'audio/webm' });
+          const url  = URL.createObjectURL(blob);
+          const item = document.createElement('div');
+          item.style.cssText = 'margin-bottom:10px;';
+          item.innerHTML = `<audio controls src="${url}" style="width:100%;border-radius:8px;"></audio>`;
+          list.insertBefore(item, list.firstChild);
+          clips.style.display = 'block';
+        }
+      };
+      mediaRecorder.start(250);
+
+      recognition = setupSpeechRecognition();
+      if (recognition) recognition.start();
+
+      isRecording = true;
+      setRecordingUI(true);
+    } catch (err) {
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        showError('Permiso de micrófono denegado. Actívalo en ajustes del navegador.');
+      } else {
+        showError('No se pudo iniciar la grabación: ' + err.message);
+      }
+    }
+  }
+
+  function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+    if (recognition) { try { recognition.stop(); } catch(_) {} }
+    isRecording = false;
+    setRecordingUI(false);
+  }
+
+  function setRecordingUI(recording) {
+    if (micIcon)  micIcon.style.display  = recording ? 'none'  : '';
+    if (stopIcon) stopIcon.style.display = recording ? ''      : 'none';
+    if (statusText) statusText.textContent = recording ? '⏺ Grabando...' : 'Listo para grabar';
+    if (recordBtn) {
+      recordBtn.style.background = recording
+        ? 'linear-gradient(135deg,#dc2626,#b91c1c)'
+        : 'linear-gradient(135deg,#7c3aed,#db2777)';
+    }
+  }
+
+  function showError(msg) {
+    if (errorEl) { errorEl.textContent = msg; errorEl.style.display = 'block'; }
+    showToast('⚠️ ' + msg);
+  }
+
+  if (recordBtn) {
+    recordBtn.addEventListener('click', () => {
+      if (isRecording) { stopRecording(); } else { startRecording(); }
+    });
+  }
+
+  if (copyBtn) {
+    copyBtn.addEventListener('click', () => {
+      const t = (transcriptEl && transcriptEl.textContent) || transcript || '';
+      if (!t.trim()) { showToast('No hay texto para copiar'); return; }
+      navigator.clipboard.writeText(t.trim()).then(() => showToast('✓ Texto copiado'));
+    });
+  }
+
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      transcript = '';
+      if (transcriptEl) transcriptEl.textContent = '';
+      showToast('Transcripción limpiada');
+    });
+  }
+})();
+
+// ── Therapy audio ─────────────────────────────────────────────
+(function initTherapyAudio() {
+  let audioCtx  = null;
+  let nodes     = [];
+  let activeBtn = null;
+
+  function getCtx() {
+    if (!audioCtx || audioCtx.state === 'closed') {
+      try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+      catch(e) { showToast('Audio no disponible en este dispositivo'); return null; }
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
+
+  function stopAll() {
+    nodes.forEach(n => { try { n.stop(); } catch(_) {} try { n.disconnect(); } catch(_) {} });
+    nodes = [];
+    document.querySelectorAll('.therapy-btn').forEach(b => b.classList.remove('active'));
+    activeBtn = null;
+  }
+
+  function addLFO(ctx, masterGain, freq, depth) {
+    const lfo = ctx.createOscillator(), lfoG = ctx.createGain();
+    lfo.type = 'sine'; lfo.frequency.value = freq; lfoG.gain.value = depth;
+    lfo.connect(lfoG); lfoG.connect(masterGain.gain); lfo.start();
+    nodes.push(lfo, lfoG);
+  }
+
+  function playProgram(program) {
+    const ctx = getCtx(); if (!ctx) return;
+    stopAll();
+
+    const master = ctx.createGain();
+    master.gain.value = 0.18;
+    master.connect(ctx.destination);
+    nodes.push(master);
+
+    if (program === 'calma') {
+      const osc = ctx.createOscillator();
+      osc.type = 'sine'; osc.frequency.value = 432;
+      osc.connect(master); osc.start(); nodes.push(osc);
+      addLFO(ctx, master, 10, 0.12);
+
+    } else if (program === 'equilibrio') {
+      const osc = ctx.createOscillator();
+      osc.type = 'sine'; osc.frequency.value = 528;
+      osc.connect(master); osc.start(); nodes.push(osc);
+      addLFO(ctx, master, 2.5, 0.1);
+
+    } else if (program === 'regulacion') {
+      const osc = ctx.createOscillator();
+      osc.type = 'sine'; osc.frequency.value = 396;
+      osc.connect(master); osc.start(); nodes.push(osc);
+      addLFO(ctx, master, 6, 0.15);
+
+    } else if (program === 'respiracion') {
+      let phase = 0, rising = true;
+      const buf  = ctx.createBuffer(1, ctx.sampleRate * 10, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      let freq = 200;
+      for (let i = 0; i < data.length; i++) {
+        freq += rising ? 0.017 : -0.017;
+        if (freq > 370) rising = false;
+        if (freq < 200) rising = true;
+        data[i] = Math.sin(2 * Math.PI * freq * i / ctx.sampleRate) * 0.5;
+      }
+      const src = ctx.createBufferSource();
+      src.buffer = buf; src.loop = true;
+      src.connect(master); src.start(); nodes.push(src);
+    }
+  }
+
+  document.querySelectorAll('.therapy-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const program = btn.dataset.program;
+      if (btn === activeBtn) { stopAll(); return; }
+      playProgram(program);
+      btn.classList.add('active');
+      activeBtn = btn;
+      showToast('🎵 ' + btn.textContent.trim().split('\n')[0] + ' iniciado');
+    });
+  });
+
+  const stopAllBtn = document.getElementById('toneStopAll');
+  if (stopAllBtn) stopAllBtn.addEventListener('click', () => { stopAll(); showToast('Audio detenido'); });
+})();
 }
