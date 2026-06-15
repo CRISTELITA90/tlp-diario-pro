@@ -1,38 +1,71 @@
 /* ============================================================
    TLP Diario Pro — script.js
-   Clinical MVP: emotion tracking, history, crisis mode, stats
+   Mi Mapa Emocional: morning/night check-in, dual notifications,
+   crisis mode, history, stats.
    ============================================================ */
 
-// ── Emotion metadata ──────────────────────────────────────────
-const EMOTIONS = {
-  'ansiedad':          { icon: '😰', color: '#7c6cfc' },
-  'vacío':             { icon: '🕳️', color: '#8892b0' },
-  'ira':               { icon: '🔥', color: '#ef4444' },
-  'tristeza':          { icon: '💧', color: '#60a5fa' },
-  'miedo al abandono': { icon: '👻', color: '#a78bfa' },
-  'impulsividad':      { icon: '⚡', color: '#f59e0b' },
-  'disociación':       { icon: '🌫️', color: '#94a3b8' },
-  'calma':             { icon: '🌊', color: '#14b8a6' },
-};
+// ── Utility ───────────────────────────────────────────────────
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
 
-// ── Data layer (localStorage) ─────────────────────────────────
-const DB = {
-  KEY: 'tlp_entries_v2',
+// ── Mapa data layer (localStorage) ───────────────────────────
+const MapaDB = {
+  KEY: 'tlp_mapa_v1',
   load() {
-    try { return JSON.parse(localStorage.getItem(this.KEY) || '[]'); }
-    catch { return []; }
+    try { return JSON.parse(localStorage.getItem(this.KEY) || '[]'); } catch { return []; }
   },
-  save(entry) {
+  getTodayEntry(period) {
+    const today = new Date().toISOString().slice(0, 10);
+    return this.load().find(e => e.date === today && e.period === period) || null;
+  },
+  save(period, data) {
     const entries = this.load();
-    const newEntry = { id: Date.now(), timestamp: new Date().toISOString(), ...entry };
-    entries.unshift(newEntry);
-    localStorage.setItem(this.KEY, JSON.stringify(entries.slice(0, 500)));
-    return newEntry;
+    const today = new Date().toISOString().slice(0, 10);
+    const filtered = entries.filter(e => !(e.date === today && e.period === period));
+    const entry = { id: Date.now(), timestamp: new Date().toISOString(), date: today, period, ...data };
+    filtered.unshift(entry);
+    localStorage.setItem(this.KEY, JSON.stringify(filtered.slice(0, 365)));
+    return entry;
   },
 };
 
 // ── App state ─────────────────────────────────────────────────
-let selectedEmotion = null;
+let currentPeriod = 'manana';
+
+// ── Scale values ──────────────────────────────────────────────
+const scaleValues = { scaleSueno: 0, scaleEnergia: 0, scaleEmocion: 0 };
+
+function buildScaleRow(containerId, field) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = '';
+  for (let i = 1; i <= 10; i++) {
+    const btn = document.createElement('button');
+    btn.className = 'scale-btn';
+    btn.textContent = i;
+    btn.dataset.v = i;
+    btn.addEventListener('click', () => {
+      scaleValues[field] = i;
+      el.querySelectorAll('.scale-btn').forEach(b => b.className = 'scale-btn');
+      btn.className = 'scale-btn ' + (i <= 3 ? 'sel-low' : i <= 6 ? 'sel-mid' : 'sel-high');
+    });
+    el.appendChild(btn);
+  }
+}
+
+function setScaleValue(containerId, field, value) {
+  if (!value) return;
+  scaleValues[field] = value;
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.querySelectorAll('.scale-btn').forEach(b => {
+    b.className = 'scale-btn';
+    if (parseInt(b.dataset.v) === value) {
+      b.className = 'scale-btn ' + (value <= 3 ? 'sel-low' : value <= 6 ? 'sel-mid' : 'sel-high');
+    }
+  });
+}
 
 // ── Toast ─────────────────────────────────────────────────────
 let toastTimer = null;
@@ -50,72 +83,41 @@ function navigate(screen) {
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('screen-' + screen).classList.add('active');
   document.getElementById('nav-' + screen).classList.add('active');
-  if (screen === 'historial')  renderHistory();
-  if (screen === 'stats')      renderStats();
+  if (screen === 'historial') renderHistory();
+  if (screen === 'stats')     renderStats();
 }
 
 document.querySelectorAll('.nav-btn').forEach(btn => {
   btn.addEventListener('click', () => navigate(btn.dataset.screen));
 });
 
-// ── Emotion selection ─────────────────────────────────────────
-document.getElementById('emotionGrid').addEventListener('click', e => {
-  const btn = e.target.closest('.emotion-btn');
-  if (!btn) return;
-  document.querySelectorAll('.emotion-btn').forEach(b => b.classList.remove('selected'));
-  btn.classList.add('selected');
-  selectedEmotion = btn.dataset.emotion;
-});
+// ── Greeting ──────────────────────────────────────────────────
+function setGreeting() {
+  const h = new Date().getHours();
+  let greeting, emoji;
+  if (h >= 5 && h < 12)  { greeting = '¡Buenos días!';   emoji = '🌸'; }
+  else if (h >= 12 && h < 20) { greeting = '¡Buenas tardes!'; emoji = '☀️'; }
+  else                   { greeting = '¡Buenas noches!';  emoji = '🌙'; }
+  document.getElementById('mapaGreeting').textContent = emoji + ' ' + greeting;
 
-// ── Intensity slider ──────────────────────────────────────────
-const slider = document.getElementById('intensitySlider');
-const intensityDisplay = document.getElementById('intensityDisplay');
-
-function intensityColor(v) {
-  if (v <= 3) return '#14b8a6';
-  if (v <= 6) return '#7c6cfc';
-  if (v <= 8) return '#f59e0b';
-  return '#ef4444';
+  const now = new Date();
+  document.getElementById('mapaDate').textContent = now.toLocaleDateString('es-ES', {
+    weekday: 'long', day: 'numeric', month: 'long'
+  });
 }
 
-slider.addEventListener('input', () => {
-  const v = parseInt(slider.value);
-  intensityDisplay.textContent = v;
-  const c = intensityColor(v);
-  intensityDisplay.style.color = c;
-  slider.style.setProperty('--thumb-color', c);
-});
-
-// ── Save entry ────────────────────────────────────────────────
-document.getElementById('saveBtn').addEventListener('click', () => {
-  if (!selectedEmotion) { showToast('Selecciona cómo te sientes'); return; }
-
-  const intensity = parseInt(slider.value);
-  const trigger   = document.getElementById('triggerSelect').value;
-  const notes     = document.getElementById('notesInput').value.trim();
-
-  DB.save({ emotion: selectedEmotion, intensity, trigger, notes });
-
-  // Reset
-  document.querySelectorAll('.emotion-btn').forEach(b => b.classList.remove('selected'));
-  selectedEmotion = null;
-  slider.value = 5;
-  intensityDisplay.textContent = '5';
-  intensityDisplay.style.color = '';
-  document.getElementById('triggerSelect').value = '';
-  document.getElementById('notesInput').value = '';
-
-  showToast('✓ Registro guardado');
-  if (intensity >= 8) setTimeout(() => showToast('⚠️ Intensidad alta — considera el Modo Crisis'), 2000);
-  updateStreak();
-});
+// ── Header clock ──────────────────────────────────────────────
+function updateClock() {
+  document.getElementById('headerTime').textContent =
+    new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+}
 
 // ── Streak badge ──────────────────────────────────────────────
 function updateStreak() {
-  const entries = DB.load();
+  const entries = MapaDB.load();
   if (!entries.length) return;
 
-  const days = new Set(entries.map(e => e.timestamp.slice(0, 10)));
+  const days = new Set(entries.map(e => e.date));
   let streak = 0;
   let d = new Date();
   while (true) {
@@ -132,9 +134,116 @@ function updateStreak() {
   }
 }
 
+// ── Completion badges ─────────────────────────────────────────
+function updateCompletionBadges() {
+  const m = MapaDB.getTodayEntry('manana');
+  const n = MapaDB.getTodayEntry('noche');
+  const mb = document.getElementById('compManana');
+  const nb = document.getElementById('compNoche');
+  mb.textContent = m ? '✓ Mañana completa' : '⭕ Mañana pendiente';
+  mb.className = 'comp-badge' + (m ? ' done' : '');
+  nb.textContent = n ? '✓ Noche completa' : '⭕ Noche pendiente';
+  nb.className = 'comp-badge' + (n ? ' done' : '');
+}
+
+// ── Period toggle ─────────────────────────────────────────────
+function switchPeriod(period) {
+  currentPeriod = period;
+  document.getElementById('formManana').style.display = period === 'manana' ? 'block' : 'none';
+  document.getElementById('formNoche').style.display  = period === 'noche'  ? 'block' : 'none';
+  document.getElementById('periodBtnManana').classList.toggle('active', period === 'manana');
+  document.getElementById('periodBtnNoche').classList.toggle('active', period === 'noche');
+
+  // Load existing saved values into form
+  if (period === 'manana') {
+    loadMananaForm();
+  } else {
+    loadNocheForm();
+  }
+}
+
+document.getElementById('periodBtnManana').addEventListener('click', () => switchPeriod('manana'));
+document.getElementById('periodBtnNoche').addEventListener('click',  () => switchPeriod('noche'));
+
+// ── Load morning form ─────────────────────────────────────────
+function loadMananaForm() {
+  const entry = MapaDB.getTodayEntry('manana');
+  if (!entry) return;
+
+  setScaleValue('scaleSueno',   'scaleSueno',   entry.sueno);
+  setScaleValue('scaleEnergia', 'scaleEnergia', entry.energia);
+  setScaleValue('scaleEmocion', 'scaleEmocion', entry.emocion);
+
+  const fields = ['Necesito','Meta','PrimerPaso','Mantra','PensamientoLimitante','CambioPensamiento'];
+  fields.forEach(f => {
+    const el = document.getElementById('input' + f);
+    if (el) el.value = entry[f.toLowerCase()] || '';
+  });
+}
+
+// ── Load night form ───────────────────────────────────────────
+function loadNocheForm() {
+  const entry = MapaDB.getTodayEntry('noche');
+  if (!entry) return;
+
+  const fields = [
+    'DialogoError','SituacionEstres','Reaccion','Diferente','Comunicar',
+    'Asertividad','Vinculo','Logro','Cualidad','Actitud',
+    'EmocionPredomino','PensamientoEmocion','Gratitud'
+  ];
+  fields.forEach(f => {
+    const el = document.getElementById('input' + f);
+    if (el) el.value = entry[f.toLowerCase()] || '';
+  });
+}
+
+// ── Save morning ──────────────────────────────────────────────
+document.getElementById('saveManana').addEventListener('click', () => {
+  const data = {
+    sueno:                scaleValues.scaleSueno,
+    energia:              scaleValues.scaleEnergia,
+    emocion:              scaleValues.scaleEmocion,
+    necesito:             document.getElementById('inputNecesito').value.trim(),
+    meta:                 document.getElementById('inputMeta').value.trim(),
+    primerpaso:           document.getElementById('inputPrimerPaso').value.trim(),
+    mantra:               document.getElementById('inputMantra').value.trim(),
+    pensamientolimitante: document.getElementById('inputPensamientoLimitante').value.trim(),
+    cambioPensamiento:    document.getElementById('inputCambioPensamiento').value.trim(),
+  };
+
+  MapaDB.save('manana', data);
+  showToast('☀️ Mañana guardada');
+  updateCompletionBadges();
+  updateStreak();
+});
+
+// ── Save night ────────────────────────────────────────────────
+document.getElementById('saveNoche').addEventListener('click', () => {
+  const data = {
+    dialogoerror:         document.getElementById('inputDialogoError').value.trim(),
+    situacionestres:      document.getElementById('inputSituacionEstres').value.trim(),
+    reaccion:             document.getElementById('inputReaccion').value.trim(),
+    diferente:            document.getElementById('inputDiferente').value.trim(),
+    comunicar:            document.getElementById('inputComunicar').value.trim(),
+    asertividad:          document.getElementById('inputAsertividad').value.trim(),
+    vinculo:              document.getElementById('inputVinculo').value.trim(),
+    logro:                document.getElementById('inputLogro').value.trim(),
+    cualidad:             document.getElementById('inputCualidad').value.trim(),
+    actitud:              document.getElementById('inputActitud').value.trim(),
+    emocionpredomino:     document.getElementById('inputEmocionPredomino').value.trim(),
+    pensamientoemocion:   document.getElementById('inputPensamientoEmocion').value.trim(),
+    gratitud:             document.getElementById('inputGratitud').value.trim(),
+  };
+
+  MapaDB.save('noche', data);
+  showToast('🌙 Noche guardada');
+  updateCompletionBadges();
+  updateStreak();
+});
+
 // ── Render history ────────────────────────────────────────────
 function renderHistory() {
-  const entries = DB.load();
+  const entries = MapaDB.load();
   const count   = document.getElementById('entryCount');
   const list    = document.getElementById('entriesList');
 
@@ -143,109 +252,133 @@ function renderHistory() {
   if (!entries.length) {
     list.innerHTML = `
       <div class="empty-state">
-        <div class="empty-icon">📖</div>
+        <div class="empty-icon">🗺️</div>
         <div class="empty-title">Sin registros aún</div>
-        <div class="empty-sub">Cuando guardes tu primera entrada,<br>aparecerá aquí.</div>
+        <div class="empty-sub">Completa tu primer mapa emocional<br>y aparecerá aquí.</div>
       </div>`;
     return;
   }
 
-  list.innerHTML = entries.map(e => {
-    const d    = new Date(e.timestamp);
-    const time = d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })
-               + ' · ' + d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-    const meta = EMOTIONS[e.emotion] || { icon: '💭' };
-    const cls  = e.emotion === 'calma' ? 'calm-e' : e.intensity >= 8 ? 'high' : '';
-    return `
-      <div class="entry-card ${cls}">
-        <div class="entry-icon">${meta.icon}</div>
-        <div class="entry-body">
-          <div class="entry-top">
-            <div class="entry-emotion">${e.emotion}</div>
-            <div class="entry-badge">${e.intensity}/10</div>
-          </div>
-          <div class="entry-time">${time}</div>
-          ${e.trigger ? `<div class="entry-trigger">↳ ${e.trigger}</div>` : ''}
-          ${e.notes   ? `<div class="entry-notes">${escHtml(e.notes)}</div>` : ''}
-        </div>
-      </div>`;
-  }).join('');
-}
+  // Group by date
+  const byDate = {};
+  entries.forEach(e => {
+    if (!byDate[e.date]) byDate[e.date] = {};
+    byDate[e.date][e.period] = e;
+  });
 
-function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const sortedDates = Object.keys(byDate).sort((a, b) => b.localeCompare(a));
+
+  list.innerHTML = sortedDates.map(date => {
+    const dateLabel = new Date(date + 'T12:00:00').toLocaleDateString('es-ES', {
+      weekday: 'long', day: 'numeric', month: 'long'
+    });
+    const m = byDate[date]['manana'];
+    const n = byDate[date]['noche'];
+
+    let html = `<div class="entry-date-header">${dateLabel}</div>`;
+
+    if (m) {
+      const scores = [];
+      if (m.sueno)   scores.push(`🌙 Sueño: ${m.sueno}`);
+      if (m.energia) scores.push(`⚡ Energía: ${m.energia}`);
+      if (m.emocion) scores.push(`💜 Emoción: ${m.emocion}`);
+      const snippet = m.mantra || m.meta || '';
+      html += `
+        <div class="entry-period-card">
+          <div class="entry-period-title">☀️ Mañana</div>
+          ${scores.length ? `<div class="entry-scores">${scores.map(s => `<span class="entry-score-chip">${s}</span>`).join('')}</div>` : ''}
+          ${snippet ? `<div class="entry-snippet">"${escHtml(snippet.slice(0,80))}"</div>` : ''}
+        </div>`;
+    }
+
+    if (n) {
+      const emotion = n.emocionpredomino || '';
+      const snippet = n.logro || n.gratitud || '';
+      html += `
+        <div class="entry-period-card">
+          <div class="entry-period-title">🌙 Noche</div>
+          ${emotion ? `<div class="entry-scores"><span class="entry-score-chip">💜 ${escHtml(emotion.slice(0,30))}</span></div>` : ''}
+          ${snippet ? `<div class="entry-snippet">"${escHtml(snippet.slice(0,80))}"</div>` : ''}
+        </div>`;
+    }
+
+    return html;
+  }).join('');
 }
 
 // ── Render stats ──────────────────────────────────────────────
 function renderStats() {
-  const entries = DB.load();
+  const entries = MapaDB.load();
+  const allDays = new Set(entries.map(e => e.date));
 
-  document.getElementById('statTotal').textContent   = entries.length;
-  document.getElementById('statCrisis').textContent  = entries.filter(e => e.intensity >= 8).length;
+  document.getElementById('statTotal').textContent = allDays.size;
 
+  // Days with BOTH periods
+  const byDate = {};
+  entries.forEach(e => {
+    if (!byDate[e.date]) byDate[e.date] = new Set();
+    byDate[e.date].add(e.period);
+  });
+  const fullDays = Object.values(byDate).filter(s => s.has('manana') && s.has('noche')).length;
+  document.getElementById('statCrisis').textContent = fullDays;
+
+  // This week
   const weekAgo = Date.now() - 7 * 864e5;
-  document.getElementById('statWeek').textContent = entries.filter(e => +new Date(e.timestamp) > weekAgo).length;
+  const weekEntries = entries.filter(e => +new Date(e.timestamp) > weekAgo);
+  const weekDays = new Set(weekEntries.map(e => e.date));
+  document.getElementById('statWeek').textContent = weekDays.size;
 
-  if (entries.length) {
-    const avg = entries.reduce((s, e) => s + e.intensity, 0) / entries.length;
+  // Average emotional score from morning entries
+  const mananaEntries = entries.filter(e => e.period === 'manana' && e.emocion);
+  if (mananaEntries.length) {
+    const avg = mananaEntries.reduce((s, e) => s + e.emocion, 0) / mananaEntries.length;
     document.getElementById('statAvg').textContent = avg.toFixed(1);
   } else {
     document.getElementById('statAvg').textContent = '—';
   }
 
-  // Emotion frequency bars
-  const eCounts = {};
-  entries.forEach(e => { eCounts[e.emotion] = (eCounts[e.emotion] || 0) + 1; });
-  const eMax    = Math.max(...Object.values(eCounts), 1);
-  const eSorted = Object.entries(eCounts).sort((a, b) => b[1] - a[1]);
-
-  document.getElementById('emotionBars').innerHTML = eSorted.length
-    ? eSorted.map(([em, n]) => {
-        const meta = EMOTIONS[em] || { icon: '💭', color: '#7c6cfc' };
-        return `
-          <div class="bar-row">
-            <div class="bar-label">${meta.icon} ${em}</div>
-            <div class="bar-track"><div class="bar-fill" style="width:${(n/eMax)*100}%;background:${meta.color}"></div></div>
-            <div class="bar-count">${n}</div>
-          </div>`;
+  // Sleep bars (last 7 manana entries)
+  const sleepEntries = entries.filter(e => e.period === 'manana' && e.sueno).slice(0, 7).reverse();
+  document.getElementById('sleepBars').innerHTML = sleepEntries.length
+    ? sleepEntries.map(e => {
+        const label = new Date(e.date + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' });
+        const pct = (e.sueno / 10) * 100;
+        const color = e.sueno <= 3 ? '#db2777' : e.sueno <= 6 ? '#7c3aed' : '#059669';
+        return `<div class="bar-row">
+          <div class="bar-label">${label}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>
+          <div class="bar-count">${e.sueno}/10</div>
+        </div>`;
       }).join('')
     : '<p style="color:var(--muted);font-size:14px;">Sin datos aún</p>';
 
-  // Trigger bars
-  const tCounts = {};
-  entries.filter(e => e.trigger).forEach(e => { tCounts[e.trigger] = (tCounts[e.trigger] || 0) + 1; });
-  const tMax    = Math.max(...Object.values(tCounts), 1);
-  const tSorted = Object.entries(tCounts).sort((a, b) => b[1] - a[1]).slice(0, 6);
-
-  document.getElementById('triggerBars').innerHTML = tSorted.length
-    ? tSorted.map(([tr, n]) => `
-        <div class="bar-row">
-          <div class="bar-label" style="font-size:11px;">${tr}</div>
-          <div class="bar-track"><div class="bar-fill" style="width:${(n/tMax)*100}%;background:var(--crisis)"></div></div>
-          <div class="bar-count">${n}</div>
-        </div>`).join('')
+  // Energy bars (last 7 manana entries)
+  const energyEntries = entries.filter(e => e.period === 'manana' && e.energia).slice(0, 7).reverse();
+  document.getElementById('energyBars').innerHTML = energyEntries.length
+    ? energyEntries.map(e => {
+        const label = new Date(e.date + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' });
+        const pct = (e.energia / 10) * 100;
+        const color = e.energia <= 3 ? '#db2777' : e.energia <= 6 ? '#7c3aed' : '#059669';
+        return `<div class="bar-row">
+          <div class="bar-label">${label}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>
+          <div class="bar-count">${e.energia}/10</div>
+        </div>`;
+      }).join('')
     : '<p style="color:var(--muted);font-size:14px;">Sin datos aún</p>';
 
-  // Average intensity per emotion
-  const eIntensity = {};
-  const eCnt2      = {};
-  entries.forEach(e => {
-    eIntensity[e.emotion] = (eIntensity[e.emotion] || 0) + e.intensity;
-    eCnt2[e.emotion]      = (eCnt2[e.emotion]      || 0) + 1;
-  });
-  const eAvg = Object.keys(eIntensity).map(k => [k, eIntensity[k] / eCnt2[k]]);
-  eAvg.sort((a, b) => b[1] - a[1]);
-
-  document.getElementById('intensityBars').innerHTML = eAvg.length
-    ? eAvg.map(([em, avg]) => {
-        const meta = EMOTIONS[em] || { icon: '💭', color: '#7c6cfc' };
-        const c    = intensityColor(Math.round(avg));
-        return `
-          <div class="bar-row">
-            <div class="bar-label">${meta.icon} ${em}</div>
-            <div class="bar-track"><div class="bar-fill" style="width:${(avg/10)*100}%;background:${c}"></div></div>
-            <div class="bar-count">${avg.toFixed(1)}</div>
-          </div>`;
+  // Emotion bars (last 7 manana entries)
+  const emotionEntries = entries.filter(e => e.period === 'manana' && e.emocion).slice(0, 7).reverse();
+  document.getElementById('emotionBars').innerHTML = emotionEntries.length
+    ? emotionEntries.map(e => {
+        const label = new Date(e.date + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' });
+        const pct = (e.emocion / 10) * 100;
+        const color = e.emocion <= 3 ? '#db2777' : e.emocion <= 6 ? '#7c3aed' : '#059669';
+        return `<div class="bar-row">
+          <div class="bar-label">${label}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>
+          <div class="bar-count">${e.emocion}/10</div>
+        </div>`;
       }).join('')
     : '<p style="color:var(--muted);font-size:14px;">Sin datos aún</p>';
 }
@@ -271,7 +404,6 @@ function closeCrisis() {
 
 // ── Breathing (4-4-6 cycle) ───────────────────────────────────
 let breathTimer   = null;
-let breathPhase   = null;
 let breathSeconds = 0;
 
 const PHASES = [
@@ -298,9 +430,9 @@ function runPhase() {
   const instr   = document.getElementById('breathInstruction');
   const counter = document.getElementById('breathCounter');
 
-  circle.className = 'breath-circle ' + p.name;
-  circle.textContent = '';
-  instr.textContent  = p.label;
+  circle.className    = 'breath-circle ' + p.name;
+  circle.textContent  = '';
+  instr.textContent   = p.label;
   counter.textContent = breathSeconds;
 
   breathTimer = setInterval(() => {
@@ -412,113 +544,91 @@ function renderImpulse() {
   document.getElementById('impulseFill').style.width = `${(impulseRemaining / TOTAL_IMPULSE) * 100}%`;
 }
 
-// ── Header clock ──────────────────────────────────────────────
-function updateClock() {
-  document.getElementById('headerTime').textContent =
-    new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-}
-
-// ── Greeting ──────────────────────────────────────────────────
-function setGreeting() {
-  const h = new Date().getHours();
-  const g = h < 6 ? 'Buenas noches' : h < 12 ? 'Buenos días' : h < 20 ? 'Buenas tardes' : 'Buenas noches';
-  document.getElementById('greeting').textContent = g;
-}
-
-// ── Notifications ─────────────────────────────────────────────
-const NOTIF_KEY    = 'tlp_notif_time';
-const NOTIF_SHOWN  = 'tlp_notif_shown_date';
+// ── Notifications (DUAL: morning + night) ─────────────────────
+const NOTIF_KEY_MORNING = 'tlp_notif_morning';
+const NOTIF_KEY_NIGHT   = 'tlp_notif_night';
 
 function notifSupported() {
   return 'Notification' in window;
 }
 
-function initNotifUI() {
-  if (!notifSupported()) return;
+function scheduleAllNotifs() {
+  if (Notification.permission !== 'granted') return;
+  scheduleSingleNotif(localStorage.getItem(NOTIF_KEY_MORNING) || '08:00', 'morning');
+  scheduleSingleNotif(localStorage.getItem(NOTIF_KEY_NIGHT)   || '21:00', 'night');
+}
 
-  const perm      = Notification.permission;
-  const banner    = document.getElementById('notifBanner');
-  const settings  = document.getElementById('notifSettings');
-  const timeInput = document.getElementById('notifTimeInput');
+function scheduleSingleNotif(timeStr, type) {
+  const [h, m] = timeStr.split(':').map(Number);
+  const now = new Date(), target = new Date(now);
+  target.setHours(h, m, 0, 0);
+  if (target <= now) target.setDate(target.getDate() + 1);
+  setTimeout(() => {
+    fireNotif(type);
+    setInterval(() => fireNotif(type), 24 * 60 * 60 * 1000);
+  }, target - now);
+}
 
-  if (perm === 'default') {
-    banner.style.display = 'flex';
-  } else if (perm === 'granted') {
-    banner.style.display = 'none';
-    settings.style.display = 'flex';
-    const saved = localStorage.getItem(NOTIF_KEY) || '20:00';
-    timeInput.value = saved;
-    updateNotifDesc(saved);
+function fireNotif(type) {
+  if (Notification.permission !== 'granted') return;
+  const already = MapaDB.getTodayEntry(type === 'morning' ? 'manana' : 'noche');
+  if (!already) {
+    new Notification('Mi Mapa Emocional 💜', {
+      body: type === 'morning'
+        ? '🌸 Buenos días — ¿Cómo amaneciste hoy? Completa tu mapa matutino.'
+        : '🌙 Buenas noches — ¿Cómo fue tu día? Completa tu mapa nocturno.',
+      tag: 'mapa-' + type,
+    });
   }
 }
 
-function updateNotifDesc(time) {
-  document.getElementById('notifSettingsDesc').textContent = `Recordatorio a las ${time}`;
+function initNotifUI() {
+  if (!notifSupported()) return;
+
+  const perm   = Notification.permission;
+  const banner = document.getElementById('notifBanner');
+  const times  = document.getElementById('notifTimes');
+
+  if (perm === 'default') {
+    banner.style.display = 'flex';
+    times.style.display  = 'none';
+  } else if (perm === 'granted') {
+    banner.style.display = 'none';
+    times.style.display  = 'block';
+    document.getElementById('notifMorningInput').value =
+      localStorage.getItem(NOTIF_KEY_MORNING) || '08:00';
+    document.getElementById('notifNightInput').value =
+      localStorage.getItem(NOTIF_KEY_NIGHT) || '21:00';
+  } else {
+    // denied
+    banner.style.display = 'none';
+    times.style.display  = 'none';
+  }
 }
 
 document.getElementById('notifEnableBtn').addEventListener('click', async () => {
   if (!notifSupported()) return;
   const perm = await Notification.requestPermission();
   if (perm === 'granted') {
-    localStorage.setItem(NOTIF_KEY, '20:00');
+    localStorage.setItem(NOTIF_KEY_MORNING, '08:00');
+    localStorage.setItem(NOTIF_KEY_NIGHT, '21:00');
     initNotifUI();
-    showToast('🔔 Recordatorio activado a las 20:00');
-    scheduleNotifCheck();
+    showToast('🔔 Recordatorios activados: 8:00 y 21:00');
+    scheduleAllNotifs();
   } else {
     showToast('Permiso denegado. Actívalo en ajustes del navegador.');
   }
 });
 
-document.getElementById('notifTimeInput').addEventListener('change', e => {
-  localStorage.setItem(NOTIF_KEY, e.target.value);
-  updateNotifDesc(e.target.value);
-  showToast(`🔔 Recordatorio actualizado a las ${e.target.value}`);
+document.getElementById('notifMorningInput').addEventListener('change', e => {
+  localStorage.setItem(NOTIF_KEY_MORNING, e.target.value);
+  showToast(`☀️ Recordatorio mañana: ${e.target.value}`);
 });
 
-function scheduleNotifCheck() {
-  const savedTime = localStorage.getItem(NOTIF_KEY) || '20:00';
-  const [h, m]   = savedTime.split(':').map(Number);
-  const now       = new Date();
-  const target    = new Date(now);
-  target.setHours(h, m, 0, 0);
-  if (target <= now) target.setDate(target.getDate() + 1);
-
-  const msUntil = target - now;
-  setTimeout(() => {
-    fireReminder();
-    setInterval(fireReminder, 24 * 60 * 60 * 1000);
-  }, msUntil);
-}
-
-function fireReminder() {
-  if (Notification.permission !== 'granted') return;
-  const today   = new Date().toISOString().slice(0, 10);
-  const entries = DB.load();
-  const hasToday = entries.some(e => e.timestamp.startsWith(today));
-  if (!hasToday) {
-    new Notification('TLP Diario', {
-      body: '¿Cómo te sientes hoy? Tómate un momento para registrarlo.',
-      icon: '/manifest.json',
-      badge: '/manifest.json',
-      tag: 'daily-reminder',
-    });
-  }
-}
-
-function checkMissedToday() {
-  if (Notification.permission !== 'granted') return;
-  const today       = new Date().toISOString().slice(0, 10);
-  const lastShown   = localStorage.getItem(NOTIF_SHOWN);
-  if (lastShown === today) return;
-
-  const entries    = DB.load();
-  const hasToday   = entries.some(e => e.timestamp.startsWith(today));
-  const h          = new Date().getHours();
-  if (!hasToday && h >= 12) {
-    showToast('📝 Aún no has registrado nada hoy');
-    localStorage.setItem(NOTIF_SHOWN, today);
-  }
-}
+document.getElementById('notifNightInput').addEventListener('change', e => {
+  localStorage.setItem(NOTIF_KEY_NIGHT, e.target.value);
+  showToast(`🌙 Recordatorio noche: ${e.target.value}`);
+});
 
 // ── Service worker registration ───────────────────────────────
 if ('serviceWorker' in navigator) {
@@ -526,13 +636,24 @@ if ('serviceWorker' in navigator) {
 }
 
 // ── Init ──────────────────────────────────────────────────────
+buildScaleRow('scaleSueno',   'scaleSueno');
+buildScaleRow('scaleEnergia', 'scaleEnergia');
+buildScaleRow('scaleEmocion', 'scaleEmocion');
 setGreeting();
 updateClock();
 setInterval(updateClock, 30000);
+updateCompletionBadges();
 updateStreak();
 renderImpulse();
 initNotifUI();
-checkMissedToday();
+
+// Auto-switch to night form if it's after 18:00
+if (new Date().getHours() >= 18) {
+  switchPeriod('noche');
+} else {
+  loadMananaForm();
+}
+
 if (notifSupported() && Notification.permission === 'granted') {
-  scheduleNotifCheck();
+  scheduleAllNotifs();
 }

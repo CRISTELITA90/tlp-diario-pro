@@ -3,34 +3,36 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#0f1623">
+  <meta name="theme-color" content="#faf7ff">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>TLP Diario Pro</title>
   <link rel="manifest" href="manifest.json">
   <style>
-    /* ── Design tokens ─────────────────────────────────────── */
+    /* ── Design tokens ─────────────────────────────────────────── */
     :root {
-      --bg:           #0f1623;
-      --surface:      #19243a;
-      --surface2:     #212e48;
-      --border:       rgba(255,255,255,0.07);
-      --accent:       #7c6cfc;
-      --accent-dim:   rgba(124,108,252,0.12);
-      --accent-light: #a898ff;
-      --crisis:       #f59e0b;
-      --crisis-dim:   rgba(245,158,11,0.12);
-      --calm:         #14b8a6;
-      --danger:       #ef4444;
-      --danger-dim:   rgba(239,68,68,0.12);
-      --text:         #e2e8f0;
-      --muted:        #8892b0;
-      --dim:          #3d4a6e;
-      --r:            16px;
-      --rs:           10px;
+      --bg:           #faf7ff;
+      --surface:      #ffffff;
+      --surface2:     #f0ebff;
+      --border:       rgba(124,58,237,0.15);
+      --accent:       #7c3aed;
+      --accent-dim:   rgba(124,58,237,0.1);
+      --accent-light: #a78bfa;
+      --pink:         #db2777;
+      --pink-dim:     rgba(219,39,119,0.08);
+      --crisis:       #d97706;
+      --crisis-dim:   rgba(217,119,6,0.12);
+      --calm:         #059669;
+      --danger:       #dc2626;
+      --danger-dim:   rgba(220,38,38,0.1);
+      --text:         #1e1b4b;
+      --muted:        #6d28d9;
+      --dim:          #c4b5fd;
+      --r:            18px;
+      --rs:           12px;
     }
 
-    /* ── Reset ─────────────────────────────────────────────── */
+    /* ── Reset ──────────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { height: 100%; -webkit-text-size-adjust: 100%; }
 
@@ -47,12 +49,12 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    /* ── Header ────────────────────────────────────────────── */
+    /* ── Header ─────────────────────────────────────────────────── */
     .app-header {
       position: sticky;
       top: 0;
       z-index: 50;
-      background: var(--bg);
+      background: var(--surface);
       border-bottom: 1px solid var(--border);
       padding: 16px 20px;
       display: flex;
@@ -85,7 +87,7 @@
       font-weight: 600;
     }
 
-    /* ── Screens ───────────────────────────────────────────── */
+    /* ── Screens ─────────────────────────────────────────────────── */
     .app-content {
       flex: 1;
       overflow-y: auto;
@@ -99,7 +101,7 @@
       to   { opacity: 1; transform: translateY(0); }
     }
 
-    /* ── Bottom nav ────────────────────────────────────────── */
+    /* ── Bottom nav ──────────────────────────────────────────────── */
     .bottom-nav {
       position: fixed;
       bottom: 0;
@@ -137,7 +139,7 @@
       stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
     }
 
-    /* ── Crisis FAB ────────────────────────────────────────── */
+    /* ── Crisis FAB ──────────────────────────────────────────────── */
     .crisis-fab {
       position: fixed;
       bottom: 68px;
@@ -168,7 +170,7 @@
       60%       { box-shadow: 0 4px 24px rgba(245,158,11,.4), 0 0 0 12px rgba(245,158,11,0); }
     }
 
-    /* ── Cards ─────────────────────────────────────────────── */
+    /* ── Cards ───────────────────────────────────────────────────── */
     .card {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -185,104 +187,7 @@
       margin-bottom: 16px;
     }
 
-    /* ── Welcome banner ────────────────────────────────────── */
-    .welcome-banner {
-      background: linear-gradient(140deg, var(--surface) 0%, var(--surface2) 100%);
-      border: 1px solid var(--border);
-      border-radius: var(--r);
-      padding: 24px 20px 22px;
-      margin-bottom: 16px;
-      text-align: center;
-    }
-    .welcome-greeting {
-      font-size: 20px;
-      font-weight: 700;
-      margin-bottom: 8px;
-    }
-    .welcome-sub {
-      font-size: 14px;
-      color: var(--muted);
-      line-height: 1.6;
-    }
-
-    /* ── Emotion grid ──────────────────────────────────────── */
-    .emotion-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 8px;
-    }
-    .emotion-btn {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 6px;
-      padding: 12px 6px;
-      background: var(--surface2);
-      border: 2px solid transparent;
-      border-radius: var(--rs);
-      cursor: pointer;
-      font-family: inherit;
-      transition: all .18s;
-      -webkit-tap-highlight-color: transparent;
-    }
-    .emotion-btn:active { transform: scale(.94); }
-    .emotion-btn.selected {
-      border-color: var(--accent);
-      background: var(--accent-dim);
-    }
-    .emotion-icon { font-size: 26px; line-height: 1; }
-    .emotion-label {
-      font-size: 10px;
-      color: var(--muted);
-      text-align: center;
-      line-height: 1.25;
-    }
-    .emotion-btn.selected .emotion-label { color: var(--accent-light); }
-
-    /* ── Intensity slider ──────────────────────────────────── */
-    .intensity-row {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-    }
-    .intensity-value {
-      font-size: 30px;
-      font-weight: 800;
-      min-width: 44px;
-      text-align: center;
-      font-variant-numeric: tabular-nums;
-      transition: color .2s;
-    }
-    input[type="range"] {
-      flex: 1;
-      -webkit-appearance: none;
-      height: 6px;
-      border-radius: 3px;
-      background: var(--surface2);
-      outline: none;
-      cursor: pointer;
-    }
-    input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 24px; height: 24px;
-      border-radius: 50%;
-      background: var(--accent);
-      cursor: pointer;
-      box-shadow: 0 0 0 4px var(--accent-dim);
-      transition: box-shadow .2s;
-    }
-    input[type="range"]:active::-webkit-slider-thumb {
-      box-shadow: 0 0 0 8px var(--accent-dim);
-    }
-    .intensity-labels {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 8px;
-      font-size: 11px;
-      color: var(--dim);
-    }
-
-    /* ── Form fields ───────────────────────────────────────── */
+    /* ── Form fields ─────────────────────────────────────────────── */
     select, textarea {
       width: 100%;
       background: var(--surface2);
@@ -296,18 +201,18 @@
       transition: border-color .2s;
     }
     select { appearance: none; -webkit-appearance: none; cursor: pointer; padding-right: 36px;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%238892b0' stroke-width='2' viewBox='0 0 24 24'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%236d28d9' stroke-width='2' viewBox='0 0 24 24'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
       background-repeat: no-repeat; background-position: right 14px center; }
-    select option { background: #19243a; }
+    select option { background: #fff; }
     textarea { resize: none; min-height: 84px; line-height: 1.55; }
     textarea::placeholder { color: var(--dim); }
     select:focus, textarea:focus { border-color: var(--accent); }
 
-    /* ── Buttons ───────────────────────────────────────────── */
+    /* ── Buttons ─────────────────────────────────────────────────── */
     .btn-primary {
       width: 100%;
       padding: 16px;
-      background: var(--accent);
+      background: linear-gradient(135deg, #7c3aed, #db2777);
       color: #fff;
       border: none;
       border-radius: var(--r);
@@ -334,20 +239,20 @@
     }
     .btn-ghost:active { background: var(--dim); }
 
-    /* ── Toast ─────────────────────────────────────────────── */
+    /* ── Toast ───────────────────────────────────────────────────── */
     .toast {
       position: fixed;
       top: 76px;
       left: 50%;
       transform: translateX(-50%) translateY(-8px);
-      background: var(--surface2);
+      background: var(--surface);
       color: var(--text);
       padding: 11px 22px;
       border-radius: 100px;
       font-size: 14px;
       font-weight: 500;
       border: 1px solid var(--border);
-      box-shadow: 0 8px 32px rgba(0,0,0,.5);
+      box-shadow: 0 8px 32px rgba(124,58,237,0.15);
       opacity: 0;
       transition: opacity .25s, transform .25s;
       z-index: 300;
@@ -356,7 +261,7 @@
     }
     .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-    /* ── History entries ───────────────────────────────────── */
+    /* ── History entries ─────────────────────────────────────────── */
     .history-header {
       display: flex;
       align-items: center;
@@ -378,48 +283,52 @@
       border-radius: var(--r);
       padding: 16px;
       margin-bottom: 10px;
-      display: flex;
-      gap: 14px;
-      align-items: flex-start;
     }
-    .entry-card.high { border-left-color: var(--danger); }
-    .entry-card.calm-e { border-left-color: var(--calm); }
-    .entry-icon { font-size: 30px; line-height: 1; flex-shrink: 0; }
-    .entry-body { flex: 1; min-width: 0; }
-    .entry-top {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 3px;
-    }
-    .entry-emotion {
-      font-size: 15px;
+    .entry-date-header {
+      font-size: 13px;
       font-weight: 700;
+      color: var(--muted);
+      margin-bottom: 8px;
       text-transform: capitalize;
+      padding: 0 2px;
     }
-    .entry-badge {
-      font-size: 12px;
+    .entry-period-card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--rs);
+      padding: 14px 16px;
+      margin-bottom: 8px;
+    }
+    .entry-period-title {
+      font-size: 14px;
       font-weight: 700;
-      padding: 3px 9px;
-      border-radius: 20px;
-      background: var(--accent-dim);
-      color: var(--accent-light);
+      color: var(--text);
+      margin-bottom: 6px;
     }
-    .entry-card.high .entry-badge { background: var(--danger-dim); color: var(--danger); }
-    .entry-card.calm-e .entry-badge { background: rgba(20,184,166,.12); color: var(--calm); }
-    .entry-time { font-size: 12px; color: var(--dim); margin-bottom: 4px; }
-    .entry-trigger { font-size: 13px; color: var(--muted); }
-    .entry-notes {
+    .entry-scores {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 6px;
+    }
+    .entry-score-chip {
+      font-size: 12px;
+      font-weight: 600;
+      background: var(--surface2);
+      color: var(--muted);
+      padding: 3px 10px;
+      border-radius: 20px;
+    }
+    .entry-snippet {
       font-size: 13px;
       color: var(--muted);
-      margin-top: 5px;
       font-style: italic;
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
     }
 
-    /* ── Empty state ───────────────────────────────────────── */
+    /* ── Empty state ─────────────────────────────────────────────── */
     .empty-state {
       text-align: center;
       padding: 64px 20px;
@@ -429,7 +338,7 @@
     .empty-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
     .empty-sub { font-size: 14px; line-height: 1.6; }
 
-    /* ── Statistics ────────────────────────────────────────── */
+    /* ── Statistics ──────────────────────────────────────────────── */
     .stats-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -472,7 +381,148 @@
     .bar-count { font-size: 12px; font-weight: 600; color: var(--muted); min-width: 24px; text-align: right; }
     .stat-screen-title { font-size: 20px; font-weight: 700; margin-bottom: 18px; }
 
-    /* ── Crisis overlay ────────────────────────────────────── */
+    /* ── Mapa hero ───────────────────────────────────────────────── */
+    .mapa-hero {
+      background: linear-gradient(135deg, #ede9fe 0%, #fce7f3 100%);
+      border-radius: 20px;
+      padding: 24px 20px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    .mapa-greeting { font-size: 26px; font-weight: 800; color: var(--text); margin-bottom: 4px; }
+    .mapa-date { font-size: 14px; color: var(--muted); text-transform: capitalize; }
+
+    /* ── Period toggle ───────────────────────────────────────────── */
+    .period-toggle {
+      display: flex;
+      gap: 6px;
+      background: var(--surface2);
+      border-radius: 14px;
+      padding: 4px;
+      margin-bottom: 14px;
+    }
+    .period-btn {
+      flex: 1; padding: 10px 8px; border-radius: 10px; border: none;
+      background: transparent; font-size: 14px; font-weight: 600;
+      color: var(--muted); cursor: pointer; font-family: inherit; transition: all .2s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .period-btn.active {
+      background: var(--surface); color: var(--accent);
+      box-shadow: 0 2px 8px rgba(124,58,237,0.15);
+    }
+
+    /* ── Completion row ──────────────────────────────────────────── */
+    .completion-row { display: flex; gap: 8px; margin-bottom: 18px; }
+    .comp-badge {
+      flex: 1; text-align: center; padding: 8px 10px; border-radius: 10px;
+      font-size: 12px; font-weight: 600; background: var(--surface2); color: var(--muted);
+      border: 1.5px solid var(--border); transition: all .2s;
+    }
+    .comp-badge.done { background: rgba(5,150,105,0.1); color: #059669; border-color: rgba(5,150,105,0.3); }
+
+    /* ── Mapa card ───────────────────────────────────────────────── */
+    .mapa-card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--r);
+      padding: 18px 20px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 10px rgba(124,58,237,0.04);
+    }
+    .mapa-q { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 5px; }
+    .mapa-hint { font-size: 12px; color: var(--muted); opacity: 0.75; margin-bottom: 12px; line-height: 1.5; font-style: italic; }
+    .mapa-input {
+      width: 100%; background: var(--surface2); border: 1.5px solid var(--border);
+      border-radius: 12px; color: var(--text); font-family: inherit; font-size: 15px;
+      padding: 12px 14px; outline: none; resize: none; min-height: 80px;
+      line-height: 1.55; transition: border-color .2s, background .2s;
+    }
+    .mapa-input::placeholder { color: var(--dim); }
+    .mapa-input:focus { border-color: var(--accent); background: #fff; }
+
+    /* ── Scale buttons ───────────────────────────────────────────── */
+    .scale-row { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 8px; }
+    .scale-btn {
+      width: 34px; height: 34px; border-radius: 50%;
+      border: 2px solid rgba(124,58,237,0.25); background: transparent;
+      color: var(--muted); font-size: 12px; font-weight: 700; cursor: pointer;
+      transition: all .15s; font-family: inherit;
+      -webkit-tap-highlight-color: transparent;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .scale-btn:active { transform: scale(.88); }
+    .scale-btn.sel-low  { background: #db2777; border-color: #db2777; color: #fff; box-shadow: 0 3px 10px rgba(219,39,119,0.35); }
+    .scale-btn.sel-mid  { background: #7c3aed; border-color: #7c3aed; color: #fff; box-shadow: 0 3px 10px rgba(124,58,237,0.35); }
+    .scale-btn.sel-high { background: #059669; border-color: #059669; color: #fff; box-shadow: 0 3px 10px rgba(5,150,105,0.35); }
+
+    /* ── Notification times settings ─────────────────────────────── */
+    .notif-times {
+      background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: var(--r); padding: 14px 18px; margin-bottom: 16px;
+    }
+    .notif-time-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; padding: 8px 0;
+    }
+    .notif-time-row:not(:last-child) { border-bottom: 1px solid var(--border); }
+    .notif-time-row span { font-size: 14px; color: var(--text); font-weight: 500; }
+
+    /* ── Notification banner ──────────────────────────────────────── */
+    .notif-banner {
+      background: linear-gradient(135deg, rgba(124,58,237,0.12), rgba(167,139,250,0.08));
+      border: 1px solid rgba(124,58,237,0.25);
+      border-radius: var(--r);
+      padding: 16px 18px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .notif-banner-text { font-size: 14px; color: var(--text); line-height: 1.4; font-weight: 500; }
+    .notif-banner-text span { font-size: 12px; color: var(--muted); display: block; margin-top: 2px; font-weight: 400; }
+    .notif-btn {
+      flex-shrink: 0;
+      padding: 9px 16px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--rs);
+      font-size: 13px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    input[type="time"] {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--rs);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 15px;
+      padding: 8px 12px;
+      outline: none;
+      cursor: pointer;
+    }
+    input[type="time"]:focus { border-color: var(--accent); }
+
+    /* ── Disclaimer ───────────────────────────────────────────────── */
+    .disclaimer {
+      text-align: center;
+      font-size: 12px;
+      color: var(--dim);
+      line-height: 1.7;
+      padding: 0 16px;
+    }
+    .disclaimer a { color: var(--crisis); text-decoration: none; }
+
+    /* ── Divider ──────────────────────────────────────────────────── */
+    .divider { height: 1px; background: var(--border); }
+
+    /* ── Crisis overlay ───────────────────────────────────────────── */
     .crisis-overlay {
       position: fixed;
       inset: 0;
@@ -495,12 +545,12 @@
       justify-content: space-between;
       z-index: 10;
     }
-    .crisis-title { font-size: 17px; font-weight: 800; color: var(--crisis); }
+    .crisis-title { font-size: 17px; font-weight: 800; color: #f59e0b; }
     .crisis-close {
       width: 34px; height: 34px;
       background: rgba(255,255,255,.07);
       border: none; border-radius: 50%;
-      color: var(--text); font-size: 17px;
+      color: #e2e8f0; font-size: 17px;
       cursor: pointer; display: flex;
       align-items: center; justify-content: center;
       -webkit-tap-highlight-color: transparent;
@@ -517,14 +567,14 @@
     .c-section-title {
       font-size: 15px;
       font-weight: 700;
-      color: var(--crisis);
+      color: #f59e0b;
       margin-bottom: 16px;
       display: flex;
       align-items: center;
       gap: 8px;
     }
 
-    /* ── Breathing ─────────────────────────────────────────── */
+    /* ── Breathing ────────────────────────────────────────────────── */
     .breath-wrap {
       display: flex;
       flex-direction: column;
@@ -536,13 +586,13 @@
       width: 130px; height: 130px;
       border-radius: 50%;
       background: radial-gradient(circle, rgba(124,108,252,.5) 0%, rgba(124,108,252,.05) 100%);
-      border: 2px solid var(--accent);
+      border: 2px solid #7c6cfc;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 13px;
       font-weight: 600;
-      color: var(--text);
+      color: #e2e8f0;
       transition: transform .1s linear, box-shadow .1s linear;
     }
     .breath-circle.inhaling {
@@ -565,56 +615,56 @@
       from { transform: scale(1.35); box-shadow: 0 0 50px 16px rgba(124,108,252,.2); }
       to   { transform: scale(.7);  box-shadow: 0 0 0   0 rgba(124,108,252,0); }
     }
-    .breath-instruction { font-size: 18px; font-weight: 700; }
+    .breath-instruction { font-size: 18px; font-weight: 700; color: #e2e8f0; }
     .breath-counter {
       font-size: 36px;
       font-weight: 800;
-      color: var(--accent);
+      color: #7c6cfc;
       font-variant-numeric: tabular-nums;
       min-height: 44px;
     }
     .breath-btns { display: flex; gap: 10px; }
 
-    /* ── Grounding ─────────────────────────────────────────── */
+    /* ── Grounding ────────────────────────────────────────────────── */
     .g-step {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--rs);
+      background: #19243a;
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 10px;
       padding: 14px 16px;
       margin-bottom: 8px;
       display: flex;
       align-items: flex-start;
       gap: 14px;
     }
-    .g-step.active { border-color: var(--crisis); background: var(--crisis-dim); }
-    .g-step.done   { border-color: var(--calm);   background: rgba(20,184,166,.06); opacity: .7; }
+    .g-step.active { border-color: #f59e0b; background: rgba(245,158,11,0.12); }
+    .g-step.done   { border-color: #14b8a6; background: rgba(20,184,166,.06); opacity: .7; }
     .g-num {
       width: 36px; height: 36px;
       border-radius: 50%;
-      background: var(--surface2);
+      background: #212e48;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-weight: 800; font-size: 16px;
+      font-weight: 800; font-size: 16px; color: #e2e8f0;
       flex-shrink: 0;
     }
-    .g-step.active .g-num { background: var(--crisis); color: #0a1220; }
-    .g-step.done   .g-num { background: var(--calm);   color: #0a1220; }
-    .g-text { font-size: 14px; line-height: 1.5; }
-    .g-text strong { display: block; margin-bottom: 2px; }
+    .g-step.active .g-num { background: #f59e0b; color: #0a1220; }
+    .g-step.done   .g-num { background: #14b8a6; color: #0a1220; }
+    .g-text { font-size: 14px; line-height: 1.5; color: #e2e8f0; }
+    .g-text strong { display: block; margin-bottom: 2px; color: #e2e8f0; }
 
-    /* ── Impulse timer ─────────────────────────────────────── */
+    /* ── Impulse timer ────────────────────────────────────────────── */
     .impulse-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--r);
+      background: #19243a;
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 18px;
       padding: 24px 20px;
       text-align: center;
     }
     .impulse-time {
       font-size: 60px;
       font-weight: 800;
-      color: var(--crisis);
+      color: #f59e0b;
       font-variant-numeric: tabular-nums;
       letter-spacing: -2px;
       line-height: 1;
@@ -622,38 +672,43 @@
     }
     .impulse-sub {
       font-size: 13px;
-      color: var(--muted);
+      color: #8892b0;
       line-height: 1.6;
       margin-bottom: 16px;
     }
     .impulse-track {
       height: 4px;
-      background: var(--surface2);
+      background: #212e48;
       border-radius: 2px;
       overflow: hidden;
       margin-bottom: 16px;
     }
     .impulse-fill {
       height: 100%;
-      background: var(--crisis);
+      background: #f59e0b;
       border-radius: 2px;
       transition: width 1s linear;
       width: 100%;
     }
     .impulse-msg {
       font-size: 14px;
-      color: var(--text);
+      color: #e2e8f0;
       font-style: italic;
     }
     .impulse-btns { display: flex; gap: 10px; margin-top: 14px; }
-    .impulse-btns .btn-ghost { flex: 1; }
+    .impulse-btns .btn-ghost {
+      flex: 1;
+      background: #212e48;
+      color: #e2e8f0;
+      border-color: rgba(255,255,255,0.07);
+    }
 
-    /* ── DBT STOP ──────────────────────────────────────────── */
+    /* ── DBT STOP ─────────────────────────────────────────────────── */
     .stop-grid { display: grid; gap: 8px; }
     .stop-item {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--rs);
+      background: #19243a;
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 10px;
       padding: 14px 16px;
       display: flex;
       align-items: center;
@@ -662,103 +717,45 @@
     .stop-letter {
       font-size: 22px;
       font-weight: 900;
-      color: var(--crisis);
+      color: #f59e0b;
       min-width: 24px;
     }
-    .stop-text { font-size: 14px; color: var(--muted); }
+    .stop-text { font-size: 14px; color: #8892b0; }
 
-    /* ── TIP skill ─────────────────────────────────────────── */
+    /* ── TIP skill ────────────────────────────────────────────────── */
     .tip-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .tip-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--rs);
+      background: #19243a;
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 10px;
       padding: 14px 12px;
     }
     .tip-letter {
       font-size: 22px;
       font-weight: 900;
-      color: var(--calm);
+      color: #14b8a6;
       margin-bottom: 6px;
     }
     .tip-name {
       font-size: 13px;
       font-weight: 700;
-      color: var(--text);
+      color: #e2e8f0;
       margin-bottom: 4px;
     }
-    .tip-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+    .tip-desc { font-size: 12px; color: #8892b0; line-height: 1.5; }
 
-    /* ── Notification banner ───────────────────────────────── */
-    .notif-banner {
-      background: linear-gradient(135deg, rgba(124,108,252,.12), rgba(20,184,166,.08));
-      border: 1px solid rgba(124,108,252,.25);
-      border-radius: var(--r);
-      padding: 16px 18px;
-      margin-bottom: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
+    /* ── Crisis btn-ghost override for dark overlay ───────────────── */
+    .crisis-body .btn-ghost {
+      background: #212e48;
+      color: #e2e8f0;
+      border-color: rgba(255,255,255,0.07);
     }
-    .notif-banner-text { font-size: 14px; color: var(--text); line-height: 1.4; }
-    .notif-banner-text span { font-size: 12px; color: var(--muted); display: block; margin-top: 2px; }
-    .notif-btn {
-      flex-shrink: 0;
-      padding: 9px 16px;
-      background: var(--accent);
-      color: #fff;
-      border: none;
-      border-radius: var(--rs);
-      font-size: 13px;
-      font-weight: 700;
-      font-family: inherit;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-    .notif-settings {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--r);
-      padding: 16px 18px;
-      margin-bottom: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    }
-    .notif-settings-text { font-size: 14px; color: var(--text); }
-    .notif-settings-text span { font-size: 12px; color: var(--muted); display: block; margin-top: 2px; }
-    input[type="time"] {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: var(--rs);
-      color: var(--text);
-      font-family: inherit;
-      font-size: 15px;
-      padding: 8px 12px;
-      outline: none;
-      cursor: pointer;
-    }
-    input[type="time"]:focus { border-color: var(--accent); }
-
-    /* ── Disclaimer ────────────────────────────────────────── */
-    .disclaimer {
-      text-align: center;
-      font-size: 12px;
-      color: var(--dim);
-      line-height: 1.7;
-      padding: 0 16px;
-    }
-    .disclaimer a { color: var(--crisis); text-decoration: none; }
-
-    /* ── Divider ───────────────────────────────────────────── */
-    .divider { height: 1px; background: var(--border); }
+    .crisis-body .btn-ghost:active { background: #3d4a6e; }
   </style>
 </head>
 <body>
 
-  <!-- ══ Header ══════════════════════════════════════════════ -->
+  <!-- ══ Header ══════════════════════════════════════════════════ -->
   <header class="app-header">
     <div class="app-logo">TLP <span>Diario</span></div>
     <div class="header-right">
@@ -767,114 +764,220 @@
     </div>
   </header>
 
-  <!-- ══ Toast ═══════════════════════════════════════════════ -->
+  <!-- ══ Toast ═══════════════════════════════════════════════════ -->
   <div class="toast" id="toast"></div>
 
-  <!-- ══ Main ════════════════════════════════════════════════ -->
+  <!-- ══ Main ════════════════════════════════════════════════════ -->
   <main class="app-content">
 
-    <!-- ── REGISTRO ─────────────────────────────────────────── -->
-    <section class="screen active" id="screen-registro">
+    <!-- ── MI MAPA EMOCIONAL ──────────────────────────────────── -->
+    <section class="screen active" id="screen-mapa">
 
       <!-- Notification banner (hidden by default, shown by JS) -->
       <div class="notif-banner" id="notifBanner" style="display:none">
         <div class="notif-banner-text">
-          Activar recordatorio diario
-          <span>Te avisamos si no has registrado hoy</span>
+          Activar recordatorios de mañana y noche
+          <span>Te avisamos a las 8:00 y las 21:00</span>
         </div>
         <button class="notif-btn" id="notifEnableBtn">Activar</button>
       </div>
 
-      <!-- Notification settings (shown after permission granted) -->
-      <div class="notif-settings" id="notifSettings" style="display:none">
-        <div class="notif-settings-text">
-          🔔 Recordatorio diario
-          <span id="notifSettingsDesc">Activo</span>
+      <!-- Notification time settings (shown after permission granted) -->
+      <div class="notif-times" id="notifTimes" style="display:none">
+        <div class="notif-time-row">
+          <span>☀️ Recordatorio mañana</span>
+          <input type="time" id="notifMorningInput" value="08:00">
         </div>
-        <input type="time" id="notifTimeInput" value="20:00">
-      </div>
-
-      <div class="welcome-banner">
-        <div class="welcome-greeting" id="greeting"></div>
-        <div class="welcome-sub">Registra lo que sientes sin juzgarte.<br>Este es tu espacio seguro.</div>
-      </div>
-
-      <div class="card">
-        <div class="card-title">¿Cómo te sientes?</div>
-        <div class="emotion-grid" id="emotionGrid">
-          <button class="emotion-btn" data-emotion="ansiedad">
-            <span class="emotion-icon">😰</span>
-            <span class="emotion-label">Ansiedad</span>
-          </button>
-          <button class="emotion-btn" data-emotion="vacío">
-            <span class="emotion-icon">🕳️</span>
-            <span class="emotion-label">Vacío</span>
-          </button>
-          <button class="emotion-btn" data-emotion="ira">
-            <span class="emotion-icon">🔥</span>
-            <span class="emotion-label">Ira</span>
-          </button>
-          <button class="emotion-btn" data-emotion="tristeza">
-            <span class="emotion-icon">💧</span>
-            <span class="emotion-label">Tristeza</span>
-          </button>
-          <button class="emotion-btn" data-emotion="miedo al abandono">
-            <span class="emotion-icon">👻</span>
-            <span class="emotion-label">Miedo al abandono</span>
-          </button>
-          <button class="emotion-btn" data-emotion="impulsividad">
-            <span class="emotion-icon">⚡</span>
-            <span class="emotion-label">Impulsividad</span>
-          </button>
-          <button class="emotion-btn" data-emotion="disociación">
-            <span class="emotion-icon">🌫️</span>
-            <span class="emotion-label">Disociación</span>
-          </button>
-          <button class="emotion-btn" data-emotion="calma">
-            <span class="emotion-icon">🌊</span>
-            <span class="emotion-label">Calma</span>
-          </button>
+        <div class="notif-time-row">
+          <span>🌙 Recordatorio noche</span>
+          <input type="time" id="notifNightInput" value="21:00">
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-title">Intensidad emocional</div>
-        <div class="intensity-row">
-          <div class="intensity-value" id="intensityDisplay">5</div>
-          <input type="range" id="intensitySlider" min="1" max="10" value="5">
+      <!-- Hero -->
+      <div class="mapa-hero">
+        <div class="mapa-greeting" id="mapaGreeting">🌸 ¡Buenos días!</div>
+        <div class="mapa-date" id="mapaDate"></div>
+      </div>
+
+      <!-- Period toggle -->
+      <div class="period-toggle">
+        <button class="period-btn active" id="periodBtnManana" data-period="manana">☀️ Mañana</button>
+        <button class="period-btn" id="periodBtnNoche" data-period="noche">🌙 Noche</button>
+      </div>
+
+      <!-- Completion badges -->
+      <div class="completion-row">
+        <div class="comp-badge" id="compManana">⭕ Mañana pendiente</div>
+        <div class="comp-badge" id="compNoche">⭕ Noche pendiente</div>
+      </div>
+
+      <!-- ── MORNING FORM ──────────────────────────────────────── -->
+      <div id="formManana">
+
+        <!-- 1. Sueño -->
+        <div class="mapa-card">
+          <div class="mapa-q">🌙 ¿Cómo dormí hoy?</div>
+          <div class="mapa-hint">En una escala del 1 al 10, ¿cómo evalúo la calidad de mi sueño?</div>
+          <div class="scale-row" id="scaleSueno"></div>
         </div>
-        <div class="intensity-labels">
-          <span>Leve (1)</span>
-          <span>Moderada</span>
-          <span>Extrema (10)</span>
+
+        <!-- 2. Energía -->
+        <div class="mapa-card">
+          <div class="mapa-q">⚡ ¿Cómo me siento hoy de energía?</div>
+          <div class="mapa-hint">En una escala del 1 al 10, ¿cómo evalúo mi nivel de energía física y mental?</div>
+          <div class="scale-row" id="scaleEnergia"></div>
         </div>
+
+        <!-- 3. Emoción -->
+        <div class="mapa-card">
+          <div class="mapa-q">💜 ¿Cómo me siento hoy emocionalmente?</div>
+          <div class="mapa-hint">En una escala del 1 al 10, ¿cómo evalúo mi estado emocional general?</div>
+          <div class="scale-row" id="scaleEmocion"></div>
+        </div>
+
+        <!-- 4. Necesito -->
+        <div class="mapa-card">
+          <div class="mapa-q">🤲 ¿Qué necesito hoy?</div>
+          <div class="mapa-hint">¿Qué recurso, apoyo o cuidado específico necesito para regularme mejor?</div>
+          <textarea class="mapa-input" id="inputNecesito" placeholder="Escribe aquí..."></textarea>
+        </div>
+
+        <!-- 5. Meta -->
+        <div class="mapa-card">
+          <div class="mapa-q">🎯 Meta o intención para hoy</div>
+          <div class="mapa-hint">¿Qué quiero sembrar hoy con conciencia?</div>
+          <textarea class="mapa-input" id="inputMeta" placeholder="Mi intención de hoy es..."></textarea>
+        </div>
+
+        <!-- 6. Primer paso -->
+        <div class="mapa-card">
+          <div class="mapa-q">👟 Primer paso que voy a dar hoy</div>
+          <div class="mapa-hint">¿Cuál es la acción concreta que inicia mi intención?</div>
+          <textarea class="mapa-input" id="inputPrimerPaso" placeholder="El primer paso es..."></textarea>
+        </div>
+
+        <!-- 7. Mantra -->
+        <div class="mapa-card">
+          <div class="mapa-q">✨ Frase o mantra que me acompañará hoy</div>
+          <div class="mapa-hint">¿Qué pensamiento expansivo quiero repetir hoy?</div>
+          <textarea class="mapa-input" id="inputMantra" placeholder="Mi mantra de hoy..."></textarea>
+        </div>
+
+        <!-- 8. Pensamiento limitante -->
+        <div class="mapa-card">
+          <div class="mapa-q">🧠 ¿Qué pensamiento limitante aparece hoy?</div>
+          <div class="mapa-hint">¿Qué narrativa interna me frena?</div>
+          <textarea class="mapa-input" id="inputPensamientoLimitante" placeholder="El pensamiento que me frena es..."></textarea>
+        </div>
+
+        <!-- 9. Cambio pensamiento -->
+        <div class="mapa-card">
+          <div class="mapa-q">🔄 Cambio de pensamiento limitante</div>
+          <div class="mapa-hint">¿Cómo reformulo ese pensamiento hacia uno más constructivo?</div>
+          <textarea class="mapa-input" id="inputCambioPensamiento" placeholder="Lo reformulo como..."></textarea>
+        </div>
+
+        <button class="btn-primary" id="saveManana" style="margin-bottom:12px;">☀️ Guardar mi mañana</button>
+
       </div>
 
-      <div class="card">
-        <div class="card-title">¿Qué lo desencadenó?</div>
-        <select id="triggerSelect">
-          <option value="">Seleccionar trigger...</option>
-          <option>Conflicto interpersonal</option>
-          <option>Soledad</option>
-          <option>Rechazo real o percibido</option>
-          <option>Crítica o juicio</option>
-          <option>Cambio de planes</option>
-          <option>Cansancio o falta de sueño</option>
-          <option>Sensación de vacío</option>
-          <option>Sin trigger claro</option>
-        </select>
-      </div>
+      <!-- ── NIGHT FORM ────────────────────────────────────────── -->
+      <div id="formNoche" style="display:none">
 
-      <div class="card">
-        <div class="card-title">Notas breves (opcional)</div>
-        <textarea id="notesInput" placeholder="¿Qué está pasando? ¿Qué piensas o necesitas?" maxlength="500"></textarea>
-      </div>
+        <!-- 1. Diálogo error -->
+        <div class="mapa-card">
+          <div class="mapa-q">💭 ¿Cómo me hablo cuando cometo un error?</div>
+          <div class="mapa-hint">¿Mi diálogo interno es compasivo o crítico?</div>
+          <textarea class="mapa-input" id="inputDialogoError" placeholder="Cuando cometo un error, me digo..."></textarea>
+        </div>
 
-      <button class="btn-primary" id="saveBtn">Guardar registro</button>
+        <!-- 2. Situación estrés -->
+        <div class="mapa-card">
+          <div class="mapa-q">😤 ¿Qué situación me generó estrés o incomodidad hoy?</div>
+          <textarea class="mapa-input" id="inputSituacionEstres" placeholder="Hoy me generó estrés..."></textarea>
+        </div>
+
+        <!-- 3. Reacción -->
+        <div class="mapa-card">
+          <div class="mapa-q">🔍 ¿Cómo reaccioné?</div>
+          <div class="mapa-hint">¿Qué pasó físicamente, qué pensé y qué sentí?</div>
+          <textarea class="mapa-input" id="inputReaccion" placeholder="Reaccioné..."></textarea>
+        </div>
+
+        <!-- 4. Diferente -->
+        <div class="mapa-card">
+          <div class="mapa-q">🌱 ¿Qué haré diferente la próxima vez?</div>
+          <div class="mapa-hint">¿Qué ajuste consciente puedo hacer?</div>
+          <textarea class="mapa-input" id="inputDiferente" placeholder="La próxima vez haré..."></textarea>
+        </div>
+
+        <!-- 5. Comunicar -->
+        <div class="mapa-card">
+          <div class="mapa-q">💬 ¿Con quién deseo comunicarme mejor hoy?</div>
+          <textarea class="mapa-input" id="inputComunicar" placeholder="Quiero comunicarme mejor con..."></textarea>
+        </div>
+
+        <!-- 6. Asertividad -->
+        <div class="mapa-card">
+          <div class="mapa-q">🗣️ Mensaje o intención desde la asertividad</div>
+          <div class="mapa-hint">¿Qué quiero expresar con claridad y respeto?</div>
+          <textarea class="mapa-input" id="inputAsertividad" placeholder="Quiero expresar..."></textarea>
+        </div>
+
+        <!-- 7. Vínculo -->
+        <div class="mapa-card">
+          <div class="mapa-q">🤝 Acción para fortalecer un vínculo</div>
+          <div class="mapa-hint">¿Qué gesto concreto haré hoy para nutrir una relación?</div>
+          <textarea class="mapa-input" id="inputVinculo" placeholder="Para nutrir mi relación con..."></textarea>
+        </div>
+
+        <!-- 8. Logro -->
+        <div class="mapa-card">
+          <div class="mapa-q">🏆 Un logro o avance de hoy</div>
+          <div class="mapa-hint">¿Qué sí hice? ¿Qué sí avancé?</div>
+          <textarea class="mapa-input" id="inputLogro" placeholder="Hoy logré..."></textarea>
+        </div>
+
+        <!-- 9. Cualidad -->
+        <div class="mapa-card">
+          <div class="mapa-q">💎 ¿Qué cualidad personal lo hizo posible?</div>
+          <div class="mapa-hint">¿Qué parte de mí sostuvo ese logro?</div>
+          <textarea class="mapa-input" id="inputCualidad" placeholder="Lo que lo hizo posible fue mi..."></textarea>
+        </div>
+
+        <!-- 10. Actitud -->
+        <div class="mapa-card">
+          <div class="mapa-q">🌟 Actitud que nutrió mi bienestar hoy</div>
+          <div class="mapa-hint">¿Qué disposición interna me ayudó?</div>
+          <textarea class="mapa-input" id="inputActitud" placeholder="La actitud que me ayudó fue..."></textarea>
+        </div>
+
+        <!-- 11. Emoción predominó -->
+        <div class="mapa-card">
+          <div class="mapa-q">💜 ¿Qué emoción predominó hoy?</div>
+          <textarea class="mapa-input" id="inputEmocionPredomino" placeholder="La emoción que predominó fue..."></textarea>
+        </div>
+
+        <!-- 12. Pensamiento emoción -->
+        <div class="mapa-card">
+          <div class="mapa-q">🧩 ¿Qué pensamiento la acompañó?</div>
+          <textarea class="mapa-input" id="inputPensamientoEmocion" placeholder="El pensamiento que la acompañó fue..."></textarea>
+        </div>
+
+        <!-- 13. Gratitud -->
+        <div class="mapa-card">
+          <div class="mapa-q">🙏 Tres cosas por las que estoy agradecid@ hoy</div>
+          <textarea class="mapa-input" id="inputGratitud" placeholder="1. &#10;2. &#10;3. " style="min-height:90px;"></textarea>
+        </div>
+
+        <button class="btn-primary" id="saveNoche" style="margin-bottom:12px;">🌙 Guardar mi noche</button>
+
+      </div>
 
     </section>
 
-    <!-- ── HISTORIAL ─────────────────────────────────────────── -->
+    <!-- ── HISTORIAL ─────────────────────────────────────────────── -->
     <section class="screen" id="screen-historial">
       <div class="history-header">
         <div class="history-title">Historial</div>
@@ -883,18 +986,18 @@
       <div id="entriesList"></div>
     </section>
 
-    <!-- ── ESTADÍSTICAS ──────────────────────────────────────── -->
+    <!-- ── ESTADÍSTICAS ──────────────────────────────────────────── -->
     <section class="screen" id="screen-stats">
       <div class="stat-screen-title">Estadísticas</div>
 
       <div class="stats-grid">
         <div class="stat-mini">
           <div class="num" id="statTotal">0</div>
-          <div class="lbl">Registros totales</div>
+          <div class="lbl">Días con mapa</div>
         </div>
         <div class="stat-mini">
           <div class="num" id="statAvg">—</div>
-          <div class="lbl">Intensidad promedio</div>
+          <div class="lbl">Emoción promedio</div>
         </div>
         <div class="stat-mini">
           <div class="num" id="statWeek">0</div>
@@ -902,34 +1005,34 @@
         </div>
         <div class="stat-mini">
           <div class="num" id="statCrisis">0</div>
-          <div class="lbl">Intensidad ≥ 8</div>
+          <div class="lbl">Mapas completos</div>
         </div>
       </div>
 
       <div class="card">
-        <div class="card-title">Emociones frecuentes</div>
+        <div class="card-title">Calidad de sueño (promedio)</div>
+        <div id="sleepBars"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Energía promedio</div>
+        <div id="energyBars"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Estado emocional promedio</div>
         <div id="emotionBars"></div>
-      </div>
-
-      <div class="card">
-        <div class="card-title">Triggers más comunes</div>
-        <div id="triggerBars"></div>
-      </div>
-
-      <div class="card">
-        <div class="card-title">Intensidad promedio por emoción</div>
-        <div id="intensityBars"></div>
       </div>
 
     </section>
 
   </main>
 
-  <!-- ══ Bottom nav ═══════════════════════════════════════════ -->
+  <!-- ══ Bottom nav ═══════════════════════════════════════════════ -->
   <nav class="bottom-nav">
-    <button class="nav-btn active" id="nav-registro" data-screen="registro">
-      <svg viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-      Registro
+    <button class="nav-btn active" id="nav-mapa" data-screen="mapa">
+      <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+      Mapa
     </button>
     <button class="nav-btn" id="nav-historial" data-screen="historial">
       <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -937,16 +1040,16 @@
     </button>
     <button class="nav-btn" id="nav-stats" data-screen="stats">
       <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-      Estadísticas
+      Stats
     </button>
   </nav>
 
-  <!-- ══ Crisis FAB ════════════════════════════════════════════ -->
+  <!-- ══ Crisis FAB ════════════════════════════════════════════════ -->
   <button class="crisis-fab" id="crisisFab" aria-label="Modo crisis">
     🆘<br>Crisis
   </button>
 
-  <!-- ══ Crisis overlay ════════════════════════════════════════ -->
+  <!-- ══ Crisis overlay ════════════════════════════════════════════ -->
   <div class="crisis-overlay" id="crisisOverlay" role="dialog" aria-modal="true" aria-label="Modo crisis">
 
     <div class="crisis-header">
