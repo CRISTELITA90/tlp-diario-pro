@@ -823,6 +823,62 @@
       font-size: 16px; padding: 4px; flex-shrink: 0;
       -webkit-tap-highlight-color: transparent;
     }
+
+    /* ── Therapy audio ────────────────────────────────────────────── */
+    .therapy-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .therapy-btn {
+      padding: 15px 10px;
+      border-radius: var(--r);
+      border: 2px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      transition: all .2s;
+      -webkit-tap-highlight-color: transparent;
+      line-height: 1.4;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .therapy-btn:active { transform: scale(.95); }
+    .therapy-btn.playing {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+      color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(124,58,237,0.1);
+    }
+    .therapy-btn .hz {
+      display: block;
+      font-size: 11px;
+      color: var(--dim);
+      margin-top: 3px;
+      font-weight: 500;
+    }
+    .therapy-btn.playing .hz { color: var(--accent-light); }
+    .therapy-stop-btn {
+      width: 100%;
+      padding: 12px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+      cursor: pointer;
+      transition: background .2s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .therapy-stop-btn:active { background: var(--dim); }
   </style>
 </head>
 <body>
@@ -1150,6 +1206,26 @@
       <div class="card" id="vozClipsSection" style="display:none">
         <div class="card-title">Clips guardados</div>
         <div id="vozClipsList"></div>
+      </div>
+
+      <!-- Therapy audio card -->
+      <div class="card">
+        <div class="card-title">🎵 Terapia de sonido</div>
+        <div class="therapy-grid">
+          <button class="therapy-btn" data-program="calma" data-freq="432">
+            Calma<span class="hz">432 Hz</span>
+          </button>
+          <button class="therapy-btn" data-program="equilibrio" data-freq="528">
+            Equilibrio<span class="hz">528 Hz</span>
+          </button>
+          <button class="therapy-btn" data-program="regulacion" data-freq="396">
+            Regulación<span class="hz">396 Hz</span>
+          </button>
+          <button class="therapy-btn" data-program="respiracion" data-freq="0">
+            Respiración<span class="hz">Patrón 4-4-6</span>
+          </button>
+        </div>
+        <button class="therapy-stop-btn" id="toneStopAll">⏹ Detener sonido</button>
       </div>
 
     </section>

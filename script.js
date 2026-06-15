@@ -658,112 +658,207 @@ if (notifSupported() && Notification.permission === 'granted') {
   scheduleAllNotifs();
 }
 
-// ── Voice diary ───────────────────────────────────────────────
+// ── Voice diary (Voz screen) ──────────────────────────────────
+// MediaRecorder captures audio; Web Speech API provides live
+// transcription (Chrome/Edge only). AudioContext is created LAZILY
+// on the first user click — browsers block it before a user gesture.
 (function initVoz() {
   let mediaRecorder = null;
   let audioChunks   = [];
   let isRecording   = false;
   let recognition   = null;
   let transcript    = '';
+  let timerInterval = null;
+  let timerSeconds  = 0;
 
+  // ── DOM refs — IDs match index.html ──────────────────────────
   const recordBtn    = document.getElementById('vozRecordBtn');
   const micIcon      = document.getElementById('vozMicIcon');
   const stopIcon     = document.getElementById('vozStopIcon');
-  const statusText   = document.getElementById('vozStatusText');
+  const statusEl     = document.getElementById('vozStatus');
+  const timerEl      = document.getElementById('vozTimer');
   const transcriptEl = document.getElementById('vozTranscript');
   const fallbackEl   = document.getElementById('vozFallback');
   const errorEl      = document.getElementById('vozError');
+  const saveBtn      = document.getElementById('vozSaveBtn');
   const copyBtn      = document.getElementById('vozCopyBtn');
   const clearBtn     = document.getElementById('vozClearBtn');
 
-  // Check Web Speech API support
-  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRec && fallbackEl) fallbackEl.style.display = 'block';
-
-  function setupSpeechRecognition() {
-    if (!SpeechRec) return null;
-    const rec = new SpeechRec();
-    rec.lang = 'es-ES';
-    rec.continuous = true;
-    rec.interimResults = true;
-    rec.onresult = e => {
-      let interim = '';
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const t = e.results[i][0].transcript;
-        if (e.results[i].isFinal) { transcript += t + ' '; }
-        else { interim = t; }
-      }
-      if (transcriptEl) transcriptEl.textContent = transcript + interim;
-    };
-    rec.onerror = err => {
-      if (err.error !== 'aborted' && err.error !== 'no-speech') {
-        if (fallbackEl) fallbackEl.style.display = 'block';
-      }
-    };
-    return rec;
+  // ── Web Speech API availability check ────────────────────────
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  // Show fallback message if speech recognition unavailable
+  if (!SpeechRec && fallbackEl) {
+    fallbackEl.style.display = 'block';
   }
 
-  async function startRecording() {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      showError('Tu navegador no soporta grabación de audio. Usa Chrome o Safari.');
-      return;
-    }
+  // ── Timer helpers ─────────────────────────────────────────────
+  function startTimer() {
+    timerSeconds = 0;
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      timerSeconds++;
+      const m = Math.floor(timerSeconds / 60).toString().padStart(2, '0');
+      const s = (timerSeconds % 60).toString().padStart(2, '0');
+      if (timerEl) timerEl.textContent = m + ':' + s;
+    }, 1000);
+  }
+
+  function stopTimer() {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+
+  // ── Speech recognition ────────────────────────────────────────
+  function startSpeech() {
+    if (!SpeechRec) return;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      audioChunks = [];
-      mediaRecorder = new MediaRecorder(stream);
-      mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
-      mediaRecorder.onstop = () => {
-        stream.getTracks().forEach(t => t.stop());
-        const clips = document.getElementById('vozClipsSection');
-        const list  = document.getElementById('vozClipsList');
-        if (audioChunks.length && clips && list) {
-          const blob = new Blob(audioChunks, { type: 'audio/webm' });
-          const url  = URL.createObjectURL(blob);
-          const item = document.createElement('div');
-          item.style.cssText = 'margin-bottom:10px;';
-          item.innerHTML = `<audio controls src="${url}" style="width:100%;border-radius:8px;"></audio>`;
-          list.insertBefore(item, list.firstChild);
-          clips.style.display = 'block';
+      recognition = new SpeechRec();
+      recognition.lang            = 'es-ES';
+      recognition.continuous      = true;
+      recognition.interimResults  = true;
+      recognition.maxAlternatives = 1;
+
+      recognition.onresult = e => {
+        let interim = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const chunk = e.results[i][0].transcript;
+          if (e.results[i].isFinal) { transcript += chunk + ' '; }
+          else { interim += chunk; }
+        }
+        if (transcriptEl) transcriptEl.value = (transcript + interim).trim();
+      };
+
+      recognition.onerror = ev => {
+        if (ev.error === 'no-speech') return;
+        if (ev.error === 'not-allowed') {
+          showBannerError('Permiso de micrófono denegado para la transcripción.');
         }
       };
-      mediaRecorder.start(250);
 
-      recognition = setupSpeechRecognition();
-      if (recognition) recognition.start();
+      recognition.onend = () => {
+        if (isRecording && recognition) {
+          try { recognition.start(); } catch (_) {}
+        }
+      };
 
-      isRecording = true;
-      setRecordingUI(true);
+      recognition.start();
+    } catch (e) {
+      // Transcription start failed — show fallback, recording continues
+      if (fallbackEl) fallbackEl.style.display = 'block';
+    }
+  }
+
+  function stopSpeech() {
+    if (recognition) {
+      try { recognition.stop(); } catch (_) {}
+      recognition = null;
+    }
+  }
+
+  // ── Banner helpers ────────────────────────────────────────────
+  function showBannerError(msg) {
+    if (errorEl) {
+      errorEl.textContent  = '⚠️ ' + msg;
+      errorEl.style.display = 'block';
+    }
+    showToast('⚠️ ' + msg.slice(0, 60));
+  }
+
+  function clearBanners() {
+    if (errorEl) errorEl.style.display = 'none';
+  }
+
+  // ── Recording UI state ────────────────────────────────────────
+  function setRecUI(recording) {
+    if (micIcon)  micIcon.style.display  = recording ? 'none' : '';
+    if (stopIcon) stopIcon.style.display = recording ? ''     : 'none';
+    if (statusEl) statusEl.textContent   = recording
+      ? '⏺ Grabando... toca para detener'
+      : 'Toca para grabar';
+    if (recordBtn) recordBtn.classList.toggle('recording', recording);
+    if (timerEl) {
+      timerEl.style.color = recording ? '#db2777' : '';
+      if (!recording) { timerEl.textContent = ''; timerSeconds = 0; }
+    }
+  }
+
+  // ── Record button — single toggle ─────────────────────────────
+  async function startRecording() {
+    clearBanners();
+
+    // HTTPS / mediaDevices check (required for getUserMedia)
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      showBannerError('Tu navegador no soporta grabación de audio. Usa Chrome, Edge o Firefox con HTTPS.');
+      return;
+    }
+
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true }
+      });
     } catch (err) {
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        showError('Permiso de micrófono denegado. Actívalo en ajustes del navegador.');
+        showBannerError('Permiso de micrófono denegado. Ve a Ajustes → Permisos → Micrófono → Permitir para este sitio.');
+      } else if (err.name === 'NotFoundError') {
+        showBannerError('No se encontró ningún micrófono. Conecta uno e inténtalo de nuevo.');
       } else {
-        showError('No se pudo iniciar la grabación: ' + err.message);
+        showBannerError('Error al acceder al micrófono: ' + err.message);
       }
+      return;
     }
+
+    audioChunks = [];
+    transcript  = '';
+    if (transcriptEl) transcriptEl.value = '';
+
+    // Pick best supported MIME type
+    const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/ogg', '']
+      .find(m => m === '' || MediaRecorder.isTypeSupported(m));
+
+    try {
+      mediaRecorder = new MediaRecorder(stream, mime ? { mimeType: mime } : {});
+    } catch (e) {
+      showBannerError('MediaRecorder no disponible en este navegador: ' + e.message);
+      stream.getTracks().forEach(t => t.stop());
+      return;
+    }
+
+    mediaRecorder.ondataavailable = ev => {
+      if (ev.data && ev.data.size > 0) audioChunks.push(ev.data);
+    };
+
+    mediaRecorder.onstop = () => {
+      stream.getTracks().forEach(t => t.stop());
+      // Add clip to saved list
+      if (audioChunks.length) {
+        const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+        addClipToUI(blob);
+      }
+      showToast('🎙️ Grabación completada');
+    };
+
+    mediaRecorder.onerror = ev => {
+      showBannerError('Error durante la grabación: ' + (ev.error?.message || 'desconocido'));
+      stopRecording();
+    };
+
+    mediaRecorder.start(250);
+    isRecording = true;
+    setRecUI(true);
+    startTimer();
+    startSpeech();
   }
 
   function stopRecording() {
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
-    if (recognition) { try { recognition.stop(); } catch(_) {} }
+    if (!isRecording) return;
     isRecording = false;
-    setRecordingUI(false);
-  }
-
-  function setRecordingUI(recording) {
-    if (micIcon)  micIcon.style.display  = recording ? 'none'  : '';
-    if (stopIcon) stopIcon.style.display = recording ? ''      : 'none';
-    if (statusText) statusText.textContent = recording ? '⏺ Grabando...' : 'Listo para grabar';
-    if (recordBtn) {
-      recordBtn.style.background = recording
-        ? 'linear-gradient(135deg,#dc2626,#b91c1c)'
-        : 'linear-gradient(135deg,#7c3aed,#db2777)';
+    stopTimer();
+    stopSpeech();
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      try { mediaRecorder.stop(); } catch (_) {}
     }
-  }
-
-  function showError(msg) {
-    if (errorEl) { errorEl.textContent = msg; errorEl.style.display = 'block'; }
-    showToast('⚠️ ' + msg);
+    setRecUI(false);
   }
 
   if (recordBtn) {
@@ -772,55 +867,182 @@ if (notifSupported() && Notification.permission === 'granted') {
     });
   }
 
+  // ── Save clip to clips panel using stylesheet classes ─────────
+  function addClipToUI(blob) {
+    const clipsSection = document.getElementById('vozClipsSection');
+    const clipsList    = document.getElementById('vozClipsList');
+    if (!clipsSection || !clipsList) return;
+
+    const url  = URL.createObjectURL(blob);
+    const time = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    const dur  = timerSeconds >= 60
+      ? Math.floor(timerSeconds / 60) + 'm ' + (timerSeconds % 60) + 's'
+      : timerSeconds + 's';
+
+    const item = document.createElement('div');
+    item.className = 'voz-clip-item';
+    item.innerHTML =
+      `<audio controls src="${url}"></audio>` +
+      `<span class="voz-clip-meta">${time}<br>${dur}</span>` +
+      `<button class="voz-clip-del" aria-label="Eliminar clip" title="Eliminar">✕</button>`;
+
+    item.querySelector('.voz-clip-del').addEventListener('click', () => {
+      URL.revokeObjectURL(url);
+      item.remove();
+      if (!clipsList.children.length) clipsSection.style.display = 'none';
+    });
+
+    clipsList.insertBefore(item, clipsList.firstChild);
+    clipsSection.style.display = 'block';
+  }
+
+  // ── Copy / Clear buttons ──────────────────────────────────────
   if (copyBtn) {
     copyBtn.addEventListener('click', () => {
-      const t = (transcriptEl && transcriptEl.textContent) || transcript || '';
-      if (!t.trim()) { showToast('No hay texto para copiar'); return; }
-      navigator.clipboard.writeText(t.trim()).then(() => showToast('✓ Texto copiado'));
+      const text = (transcriptEl && transcriptEl.value.trim()) || '';
+      if (!text) { showToast('No hay texto para copiar'); return; }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text)
+          .then(() => showToast('📋 Copiado al portapapeles'))
+          .catch(() => showToast('No se pudo copiar'));
+      } else {
+        if (transcriptEl) {
+          transcriptEl.select();
+          try { document.execCommand('copy'); showToast('📋 Copiado'); }
+          catch (_) { showToast('No se pudo copiar'); }
+        }
+      }
     });
   }
 
   if (clearBtn) {
     clearBtn.addEventListener('click', () => {
       transcript = '';
-      if (transcriptEl) transcriptEl.textContent = '';
+      if (transcriptEl) transcriptEl.value = '';
       showToast('Transcripción limpiada');
+    });
+  }
+
+  // ── Save button ───────────────────────────────────────────────
+  if (saveBtn) saveBtn.addEventListener('click', () => {
+    showToast('Los clips se guardan automáticamente al detener');
+  });
+
+  // ── Analyze button ────────────────────────────────────────────
+  const analyzeBtn = document.getElementById('vozAnalyzeBtn');
+  if (analyzeBtn) {
+    analyzeBtn.addEventListener('click', async () => {
+      const text = transcriptEl ? transcriptEl.value.trim() : '';
+      if (!text) { showToast('Escribe o graba algo primero.'); return; }
+      showToast('Analizando...');
+      try {
+        const res = await fetch('/api/analyze', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ text }),
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        showToast(data.message || '✓ Análisis completado');
+      } catch (_) {
+        showToast('El análisis no está disponible ahora mismo.');
+      }
     });
   }
 })();
 
-// ── Therapy audio ─────────────────────────────────────────────
+// ── Therapy audio (Web Audio API) ────────────────────────────
 (function initTherapyAudio() {
+  // AudioContext created lazily on first user gesture
   let audioCtx  = null;
-  let nodes     = [];
-  let activeBtn = null;
+  let nodes     = [];   // all active audio nodes (oscillators, gains)
+  let breathTmr = null; // setTimeout for breathing cycle loop
+  let activeBtn = null; // currently playing button element
 
   function getCtx() {
     if (!audioCtx || audioCtx.state === 'closed') {
-      try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
-      catch(e) { showToast('Audio no disponible en este dispositivo'); return null; }
+      try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      } catch (e) {
+        showToast('Audio no disponible en este dispositivo');
+        return null;
+      }
     }
-    if (audioCtx.state === 'suspended') audioCtx.resume();
+    if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
     return audioCtx;
   }
 
   function stopAll() {
-    nodes.forEach(n => { try { n.stop(); } catch(_) {} try { n.disconnect(); } catch(_) {} });
+    clearTimeout(breathTmr);
+    breathTmr = null;
+    nodes.forEach(n => {
+      try { n.stop(); } catch (_) {}
+      try { n.disconnect(); } catch (_) {}
+    });
     nodes = [];
-    document.querySelectorAll('.therapy-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.therapy-btn').forEach(b => b.classList.remove('playing'));
     activeBtn = null;
   }
 
-  function addLFO(ctx, masterGain, freq, depth) {
-    const lfo = ctx.createOscillator(), lfoG = ctx.createGain();
-    lfo.type = 'sine'; lfo.frequency.value = freq; lfoG.gain.value = depth;
-    lfo.connect(lfoG); lfoG.connect(masterGain.gain); lfo.start();
-    nodes.push(lfo, lfoG);
+  // Adds a low-frequency oscillator (LFO) that modulates the master gain
+  function addLFO(ctx, masterGain, lfoFreq, lfoDepth) {
+    try {
+      const lfo  = ctx.createOscillator();
+      const lfoG = ctx.createGain();
+      lfo.type            = 'sine';
+      lfo.frequency.value = lfoFreq;
+      lfoG.gain.value     = lfoDepth;
+      lfo.connect(lfoG);
+      lfoG.connect(masterGain.gain);
+      lfo.start();
+      nodes.push(lfo, lfoG);
+    } catch (_) {}
   }
 
-  function playProgram(program) {
-    const ctx = getCtx(); if (!ctx) return;
+  // Breathing program: 4-4-6 tones (inhale/hold/exhale), loops automatically
+  function startBreathingTones(ctx) {
+    const t = ctx.currentTime;
+
+    function phase(freqStart, freqEnd, tStart, dur) {
+      try {
+        const osc  = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freqStart, t + tStart);
+        osc.frequency.linearRampToValueAtTime(freqEnd, t + tStart + dur);
+        gain.gain.setValueAtTime(0, t + tStart);
+        gain.gain.linearRampToValueAtTime(0.14, t + tStart + 0.1);
+        gain.gain.setValueAtTime(0.14, t + tStart + dur - 0.1);
+        gain.gain.linearRampToValueAtTime(0, t + tStart + dur);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(t + tStart);
+        osc.stop(t + tStart + dur);
+        nodes.push(osc, gain);
+      } catch (_) {}
+    }
+
+    phase(176, 220, 0, 4);   // inhale: rising
+    phase(196, 196, 4, 4);   // hold: steady
+    phase(196, 148, 8, 6);   // exhale: falling
+
+    breathTmr = setTimeout(() => {
+      if (activeBtn && activeBtn.dataset.program === 'respiracion') {
+        // Clear old nodes so new cycle starts fresh
+        nodes.forEach(n => { try { n.stop(); } catch (_) {} try { n.disconnect(); } catch (_) {} });
+        nodes = [];
+        startBreathingTones(ctx);
+      }
+    }, 14000);
+  }
+
+  function playProgram(btn) {
+    const ctx     = getCtx();
+    if (!ctx) return;
+    const program = btn.dataset.program;
     stopAll();
+    activeBtn = btn;
+    btn.classList.add('playing');
 
     const master = ctx.createGain();
     master.gain.value = 0.18;
@@ -828,52 +1050,45 @@ if (notifSupported() && Notification.permission === 'granted') {
     nodes.push(master);
 
     if (program === 'calma') {
-      const osc = ctx.createOscillator();
-      osc.type = 'sine'; osc.frequency.value = 432;
-      osc.connect(master); osc.start(); nodes.push(osc);
-      addLFO(ctx, master, 10, 0.12);
+      try {
+        const osc = ctx.createOscillator();
+        osc.type = 'sine'; osc.frequency.value = 432;
+        osc.connect(master); osc.start(); nodes.push(osc);
+        addLFO(ctx, master, 10, 0.12);
+      } catch (_) {}
 
     } else if (program === 'equilibrio') {
-      const osc = ctx.createOscillator();
-      osc.type = 'sine'; osc.frequency.value = 528;
-      osc.connect(master); osc.start(); nodes.push(osc);
-      addLFO(ctx, master, 2.5, 0.1);
+      try {
+        const osc = ctx.createOscillator();
+        osc.type = 'sine'; osc.frequency.value = 528;
+        osc.connect(master); osc.start(); nodes.push(osc);
+        addLFO(ctx, master, 2.5, 0.1);
+      } catch (_) {}
 
     } else if (program === 'regulacion') {
-      const osc = ctx.createOscillator();
-      osc.type = 'sine'; osc.frequency.value = 396;
-      osc.connect(master); osc.start(); nodes.push(osc);
-      addLFO(ctx, master, 6, 0.15);
+      try {
+        const osc = ctx.createOscillator();
+        osc.type = 'sine'; osc.frequency.value = 396;
+        osc.connect(master); osc.start(); nodes.push(osc);
+        addLFO(ctx, master, 6, 0.15);
+      } catch (_) {}
 
     } else if (program === 'respiracion') {
-      let phase = 0, rising = true;
-      const buf  = ctx.createBuffer(1, ctx.sampleRate * 10, ctx.sampleRate);
-      const data = buf.getChannelData(0);
-      let freq = 200;
-      for (let i = 0; i < data.length; i++) {
-        freq += rising ? 0.017 : -0.017;
-        if (freq > 370) rising = false;
-        if (freq < 200) rising = true;
-        data[i] = Math.sin(2 * Math.PI * freq * i / ctx.sampleRate) * 0.5;
-      }
-      const src = ctx.createBufferSource();
-      src.buffer = buf; src.loop = true;
-      src.connect(master); src.start(); nodes.push(src);
+      master.disconnect();  // breathing uses per-phase gains
+      nodes = nodes.filter(n => n !== master);
+      startBreathingTones(ctx);
     }
+
+    showToast('🎵 ' + btn.firstChild.textContent.trim() + ' iniciado');
   }
 
   document.querySelectorAll('.therapy-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      const program = btn.dataset.program;
-      if (btn === activeBtn) { stopAll(); return; }
-      playProgram(program);
-      btn.classList.add('active');
-      activeBtn = btn;
-      showToast('🎵 ' + btn.textContent.trim().split('\n')[0] + ' iniciado');
+      if (btn === activeBtn) { stopAll(); showToast('Audio detenido'); return; }
+      playProgram(btn);
     });
   });
 
   const stopAllBtn = document.getElementById('toneStopAll');
   if (stopAllBtn) stopAllBtn.addEventListener('click', () => { stopAll(); showToast('Audio detenido'); });
 })();
-}
