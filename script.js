@@ -4,6 +4,23 @@
    crisis mode, history, stats.
    ============================================================ */
 
+// ── Auto-redirect with data if not on production URL ─────────
+(function autoMigrate() {
+  const PROD = 'tlp-diario-pro.vercel.app';
+  if (location.hostname === PROD) return;
+  if (location.hash.startsWith('#mapa-import=')) return;
+
+  const mapa   = localStorage.getItem('tlp_mapa_v1');
+  const legacy = localStorage.getItem('tlp_entries_v2');
+  const mapaArr   = mapa   ? JSON.parse(mapa)   : [];
+  const legacyArr = legacy ? JSON.parse(legacy) : [];
+
+  if (!mapaArr.length && !legacyArr.length) return;
+
+  const payload = btoa(JSON.stringify({ mapa: mapaArr, legacy: legacyArr }));
+  location.replace('https://' + PROD + '/#mapa-import=' + payload);
+})();
+
 // ── Utility ───────────────────────────────────────────────────
 function escHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
