@@ -747,6 +747,48 @@ document.getElementById('notifNightInput').addEventListener('change', e => {
   showToast(`🌙 Recordatorio noche: ${e.target.value}`);
 });
 
+// ── Data transfer (cross-URL migration) ──────────────────────
+const PROD_URL = 'https://tlp-diario-pro.vercel.app/';
+
+// On load: check if we arrived with import data in the URL hash
+(function checkImportHash() {
+  const hash = location.hash;
+  if (!hash.startsWith('#mapa-import=')) return;
+  try {
+    const encoded = hash.slice('#mapa-import='.length);
+    const payload = JSON.parse(atob(encoded));
+    let imported = 0;
+
+    if (payload.mapa && payload.mapa.length) {
+      const existing = MapaDB.load();
+      const existingIds = new Set(existing.map(e => String(e.id)));
+      const newOnes = payload.mapa.filter(e => !existingIds.has(String(e.id)));
+      if (newOnes.length) {
+        const merged = [...newOnes, ...existing].slice(0, 365);
+        localStorage.setItem(MapaDB.KEY, JSON.stringify(merged));
+        imported += newOnes.length;
+      }
+    }
+    if (payload.legacy && payload.legacy.length) {
+      const existing = JSON.parse(localStorage.getItem('tlp_entries_v2') || '[]');
+      const existingIds = new Set(existing.map(e => String(e.id)));
+      const newOnes = payload.legacy.filter(e => !existingIds.has(String(e.id)));
+      if (newOnes.length) {
+        const merged = [...newOnes, ...existing].slice(0, 500);
+        localStorage.setItem('tlp_entries_v2', JSON.stringify(merged));
+        imported += newOnes.length;
+      }
+    }
+
+    history.replaceState(null, '', location.pathname);
+    if (imported > 0) {
+      updateCompletionBadges();
+      updateStreak();
+      setTimeout(() => showToast(`✅ ${imported} registro${imported > 1 ? 's' : ''} importado${imported > 1 ? 's' : ''} correctamente`), 500);
+    }
+  } catch (_) {}
+})();
+
 // ── Data rescue tool ─────────────────────────────────────────
 document.getElementById('checkDataBtn').addEventListener('click', () => {
   const mapaRaw  = localStorage.getItem('tlp_mapa_v1');
@@ -778,10 +820,26 @@ document.getElementById('checkDataBtn').addEventListener('click', () => {
     html += `✅ <strong>${legacyEntries.length} registro${legacyEntries.length > 1 ? 's' : ''} anterior${legacyEntries.length > 1 ? 'es' : ''}</strong> encontrado${legacyEntries.length > 1 ? 's' : ''}<br>`;
   }
   html += '</div>';
+  const isProduction = location.hostname === 'tlp-diario-pro.vercel.app';
+
   if (mapaEntries.length || legacyEntries.length) {
-    html += `<button class="btn-primary" id="forceRescueBtn" style="margin-top:12px;background:linear-gradient(135deg,#059669,#0d9488);">
-      ✓ Restaurar y ver en Historial
-    </button>`;
+    if (isProduction) {
+      html += `<button class="btn-primary" id="forceRescueBtn" style="margin-top:12px;background:linear-gradient(135deg,#059669,#0d9488);">
+        ✓ Ver en Historial
+      </button>`;
+    } else {
+      // Encode all data and redirect to production URL
+      const payload = btoa(JSON.stringify({ mapa: mapaEntries, legacy: legacyEntries }));
+      const transferUrl = PROD_URL + '#mapa-import=' + payload;
+      html += `<a href="${transferUrl}" style="display:block;margin-top:12px;text-decoration:none;">
+        <button class="btn-primary" style="width:100%;background:linear-gradient(135deg,#059669,#0d9488);">
+          📲 Transferir a la app principal
+        </button>
+      </a>
+      <div style="font-size:12px;color:var(--muted);margin-top:8px;text-align:center;">
+        Te lleva a tlp-diario-pro.vercel.app con tus datos
+      </div>`;
+    }
   }
   result.innerHTML = html;
 
