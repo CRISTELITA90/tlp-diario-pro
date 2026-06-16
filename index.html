@@ -1138,6 +1138,14 @@
     <section class="screen" id="screen-stats">
       <div class="stat-screen-title">Estadísticas</div>
 
+      <!-- Data rescue tool -->
+      <div class="card" id="dataRescueCard" style="border-color:var(--pink);border-width:2px;">
+        <div class="card-title" style="color:var(--pink);">🔍 Buscar datos guardados</div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.5;">Pulsa para ver si tienes registros guardados en este navegador.</p>
+        <button class="btn-primary" id="checkDataBtn" style="background:linear-gradient(135deg,#db2777,#7c3aed);">Comprobar datos</button>
+        <div id="dataRescueResult" style="display:none;margin-top:14px;"></div>
+      </div>
+
       <div class="stats-grid">
         <div class="stat-mini">
           <div class="num" id="statTotal">0</div>

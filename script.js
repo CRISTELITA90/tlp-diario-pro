@@ -747,6 +747,53 @@ document.getElementById('notifNightInput').addEventListener('change', e => {
   showToast(`🌙 Recordatorio noche: ${e.target.value}`);
 });
 
+// ── Data rescue tool ─────────────────────────────────────────
+document.getElementById('checkDataBtn').addEventListener('click', () => {
+  const mapaRaw  = localStorage.getItem('tlp_mapa_v1');
+  const legacyRaw = localStorage.getItem('tlp_entries_v2');
+
+  const mapaEntries   = mapaRaw   ? JSON.parse(mapaRaw)   : [];
+  const legacyEntries = legacyRaw ? JSON.parse(legacyRaw) : [];
+
+  const result = document.getElementById('dataRescueResult');
+  result.style.display = 'block';
+
+  if (!mapaEntries.length && !legacyEntries.length) {
+    result.innerHTML = `
+      <div style="background:#fce7f3;border-radius:12px;padding:16px;color:#9d174d;font-size:14px;line-height:1.6;">
+        ❌ No hay datos guardados en este navegador/URL.<br><br>
+        <strong>Posible causa:</strong> Los datos se guardaron en una URL diferente de Vercel.
+        Prueba a abrir la app desde el enlace que usabas antes.
+      </div>`;
+    return;
+  }
+
+  let html = '<div style="background:#f0fdf4;border-radius:12px;padding:16px;font-size:14px;line-height:1.8;">';
+  if (mapaEntries.length) {
+    html += `✅ <strong>${mapaEntries.length} mapa${mapaEntries.length > 1 ? 's' : ''} emocional${mapaEntries.length > 1 ? 'es' : ''}</strong> encontrado${mapaEntries.length > 1 ? 's' : ''}<br>`;
+    const dates = [...new Set(mapaEntries.map(e => e.date))].sort().reverse().slice(0, 5);
+    html += `<span style="color:#059669;font-size:12px;">Fechas: ${dates.join(', ')}</span><br><br>`;
+  }
+  if (legacyEntries.length) {
+    html += `✅ <strong>${legacyEntries.length} registro${legacyEntries.length > 1 ? 's' : ''} anterior${legacyEntries.length > 1 ? 'es' : ''}</strong> encontrado${legacyEntries.length > 1 ? 's' : ''}<br>`;
+  }
+  html += '</div>';
+  if (mapaEntries.length || legacyEntries.length) {
+    html += `<button class="btn-primary" id="forceRescueBtn" style="margin-top:12px;background:linear-gradient(135deg,#059669,#0d9488);">
+      ✓ Restaurar y ver en Historial
+    </button>`;
+  }
+  result.innerHTML = html;
+
+  const rescueBtn = document.getElementById('forceRescueBtn');
+  if (rescueBtn) {
+    rescueBtn.addEventListener('click', () => {
+      showToast('✓ Datos encontrados — ve a Historial');
+      navigate('historial');
+    });
+  }
+});
+
 // ── Service worker registration ───────────────────────────────
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
