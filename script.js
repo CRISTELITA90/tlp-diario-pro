@@ -33,9 +33,89 @@ const MapaDB = {
     const entry = { id: Date.now(), timestamp: new Date().toISOString(), date: today, period, ...data };
     filtered.unshift(entry);
     localStorage.setItem(this.KEY, JSON.stringify(filtered.slice(0, 365)));
+    SupaDB.saveMapaEntry(entry);
     return entry;
   },
 };
+
+// ── Supabase cloud sync ───────────────────────────────────────
+const SupaDB = (() => {
+  let client = null;
+
+  async function init() {
+    try {
+      const res = await fetch('/api/config');
+      const cfg = await res.json();
+      if (!cfg.supabaseUrl || !cfg.supabaseAnonKey) return;
+      client = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+      const { data: { session } } = await client.auth.getSession();
+      if (session) {
+        showCloudBadge(session.user.email);
+        syncFromCloud();
+      }
+      client.auth.onAuthStateChange((_ev, session) => {
+        if (session) { showCloudBadge(session.user.email); syncFromCloud(); }
+        else { hideCloudBadge(); }
+      });
+    } catch (_) {}
+  }
+
+  function showCloudBadge(email) {
+    const b = document.getElementById('cloudBadge');
+    if (b) { b.textContent = '☁️ ' + email.split('@')[0]; b.style.display = 'inline-block'; }
+  }
+  function hideCloudBadge() {
+    const b = document.getElementById('cloudBadge');
+    if (b) b.style.display = 'none';
+  }
+
+  async function saveMapaEntry(entry) {
+    if (!client) return;
+    try {
+      const { data: { user } } = await client.auth.getUser();
+      if (!user) return;
+      await client.from('mapa_entries').upsert({
+        user_id:   user.id,
+        local_id:  String(entry.id),
+        date:      entry.date,
+        period:    entry.period,
+        data:      JSON.stringify(entry),
+        created_at: entry.timestamp,
+      }, { onConflict: 'local_id' });
+    } catch (_) {}
+  }
+
+  async function syncFromCloud() {
+    if (!client) return;
+    try {
+      const { data: { user } } = await client.auth.getUser();
+      if (!user) return;
+      const { data } = await client
+        .from('mapa_entries')
+        .select('data')
+        .eq('user_id', user.id)
+        .order('date', { ascending: false })
+        .limit(365);
+      if (!data || !data.length) return;
+      const cloudEntries = data.map(r => {
+        try { return JSON.parse(r.data); } catch { return null; }
+      }).filter(Boolean);
+      // Merge: cloud entries that don't exist locally
+      const local = MapaDB.load();
+      const localIds = new Set(local.map(e => String(e.id)));
+      const newOnes  = cloudEntries.filter(e => !localIds.has(String(e.id)));
+      if (newOnes.length) {
+        const merged = [...newOnes, ...local].slice(0, 365);
+        localStorage.setItem(MapaDB.KEY, JSON.stringify(merged));
+        updateCompletionBadges();
+        updateStreak();
+        showToast(`☁️ ${newOnes.length} entrada${newOnes.length > 1 ? 's' : ''} recuperada${newOnes.length > 1 ? 's' : ''} de la nube`);
+      }
+    } catch (_) {}
+  }
+
+  return { init, saveMapaEntry, syncFromCloud };
+})();
 
 // ── App state ─────────────────────────────────────────────────
 let currentPeriod = 'manana';
@@ -683,6 +763,7 @@ updateCompletionBadges();
 updateStreak();
 renderImpulse();
 initNotifUI();
+SupaDB.init();
 
 // Auto-switch to night form if it's after 18:00
 if (new Date().getHours() >= 18) {

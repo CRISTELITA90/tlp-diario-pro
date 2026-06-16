@@ -86,6 +86,14 @@
       border-radius: 20px;
       font-weight: 600;
     }
+    .header-cloud {
+      font-size: 11px;
+      background: var(--pink-dim);
+      color: var(--pink);
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-weight: 600;
+    }
 
     /* ── Screens ─────────────────────────────────────────────────── */
     .app-content {
@@ -899,6 +907,7 @@
     <div class="app-logo">TLP <span>Diario</span></div>
     <div class="header-right">
       <div class="header-streak" id="streakBadge" style="display:none"></div>
+      <div class="header-cloud" id="cloudBadge" style="display:none"></div>
       <div class="header-time" id="headerTime"></div>
     </div>
   </header>
@@ -1413,6 +1422,7 @@
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
