@@ -9,6 +9,13 @@ function escHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+// ── Legacy data layer (registros anteriores) ─────────────────
+const LegacyDB = {
+  load() {
+    try { return JSON.parse(localStorage.getItem('tlp_entries_v2') || '[]'); } catch { return []; }
+  },
+};
+
 // ── Mapa data layer (localStorage) ───────────────────────────
 const MapaDB = {
   KEY: 'tlp_mapa_v1',
@@ -243,13 +250,87 @@ document.getElementById('saveNoche').addEventListener('click', () => {
 
 // ── Render history ────────────────────────────────────────────
 function renderHistory() {
-  const entries = MapaDB.load();
-  const count   = document.getElementById('entryCount');
-  const list    = document.getElementById('entriesList');
+  const entries  = MapaDB.load();
+  const legacy   = LegacyDB.load();
+  const count    = document.getElementById('entryCount');
+  const list     = document.getElementById('entriesList');
+  const total    = entries.length + legacy.length;
 
-  count.textContent = entries.length + (entries.length === 1 ? ' registro' : ' registros');
+  count.textContent = total + (total === 1 ? ' registro' : ' registros');
 
-  if (!entries.length) {
+  const EMOTIONS_ICON = {
+    'ansiedad':'😰','vacío':'🕳️','ira':'🔥','tristeza':'💧',
+    'miedo al abandono':'👻','impulsividad':'⚡','disociación':'🌫️','calma':'🌊',
+  };
+
+  let html = '';
+
+  // ── New mapa entries ─────────────────────────────────────────
+  if (entries.length) {
+    const byDate = {};
+    entries.forEach(e => {
+      if (!byDate[e.date]) byDate[e.date] = {};
+      byDate[e.date][e.period] = e;
+    });
+    const sortedDates = Object.keys(byDate).sort((a, b) => b.localeCompare(a));
+
+    html += sortedDates.map(date => {
+      const dateLabel = new Date(date + 'T12:00:00').toLocaleDateString('es-ES', {
+        weekday: 'long', day: 'numeric', month: 'long'
+      });
+      const m = byDate[date]['manana'];
+      const n = byDate[date]['noche'];
+      let dhtml = `<div class="entry-date-header">${dateLabel}</div>`;
+
+      if (m) {
+        const scores = [];
+        if (m.sueno)   scores.push(`🌙 Sueño: ${m.sueno}`);
+        if (m.energia) scores.push(`⚡ Energía: ${m.energia}`);
+        if (m.emocion) scores.push(`💜 Emoción: ${m.emocion}`);
+        const snippet = m.mantra || m.meta || '';
+        dhtml += `
+          <div class="entry-period-card">
+            <div class="entry-period-title">☀️ Mañana</div>
+            ${scores.length ? `<div class="entry-scores">${scores.map(s => `<span class="entry-score-chip">${s}</span>`).join('')}</div>` : ''}
+            ${snippet ? `<div class="entry-snippet">"${escHtml(snippet.slice(0,80))}"</div>` : ''}
+          </div>`;
+      }
+      if (n) {
+        const emotion = n.emocionpredomino || '';
+        const snippet = n.logro || n.gratitud || '';
+        dhtml += `
+          <div class="entry-period-card">
+            <div class="entry-period-title">🌙 Noche</div>
+            ${emotion ? `<div class="entry-scores"><span class="entry-score-chip">💜 ${escHtml(emotion.slice(0,30))}</span></div>` : ''}
+            ${snippet ? `<div class="entry-snippet">"${escHtml(snippet.slice(0,80))}"</div>` : ''}
+          </div>`;
+      }
+      return dhtml;
+    }).join('');
+  }
+
+  // ── Legacy entries (old format: emotion + intensity) ─────────
+  if (legacy.length) {
+    html += `<div class="entry-date-header legacy-header">📂 Registros anteriores (${legacy.length})</div>`;
+    html += legacy.map(e => {
+      const d    = new Date(e.timestamp);
+      const time = d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })
+                 + ' · ' + d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      const icon = EMOTIONS_ICON[e.emotion] || '💭';
+      const intColor = e.intensity >= 8 ? '#dc2626' : e.intensity >= 5 ? '#7c3aed' : '#059669';
+      return `
+        <div class="entry-period-card legacy-card">
+          <div class="entry-period-title">${icon} ${escHtml(e.emotion || '')}
+            <span style="float:right;font-size:13px;font-weight:700;color:${intColor}">${e.intensity}/10</span>
+          </div>
+          <div class="entry-snippet" style="color:var(--muted);font-style:normal;">${time}</div>
+          ${e.trigger ? `<div class="entry-snippet">↳ ${escHtml(e.trigger)}</div>` : ''}
+          ${e.notes   ? `<div class="entry-snippet" style="font-style:italic;">"${escHtml(e.notes.slice(0,100))}"</div>` : ''}
+        </div>`;
+    }).join('');
+  }
+
+  if (!html) {
     list.innerHTML = `
       <div class="empty-state">
         <div class="empty-icon">🗺️</div>
@@ -259,51 +340,7 @@ function renderHistory() {
     return;
   }
 
-  // Group by date
-  const byDate = {};
-  entries.forEach(e => {
-    if (!byDate[e.date]) byDate[e.date] = {};
-    byDate[e.date][e.period] = e;
-  });
-
-  const sortedDates = Object.keys(byDate).sort((a, b) => b.localeCompare(a));
-
-  list.innerHTML = sortedDates.map(date => {
-    const dateLabel = new Date(date + 'T12:00:00').toLocaleDateString('es-ES', {
-      weekday: 'long', day: 'numeric', month: 'long'
-    });
-    const m = byDate[date]['manana'];
-    const n = byDate[date]['noche'];
-
-    let html = `<div class="entry-date-header">${dateLabel}</div>`;
-
-    if (m) {
-      const scores = [];
-      if (m.sueno)   scores.push(`🌙 Sueño: ${m.sueno}`);
-      if (m.energia) scores.push(`⚡ Energía: ${m.energia}`);
-      if (m.emocion) scores.push(`💜 Emoción: ${m.emocion}`);
-      const snippet = m.mantra || m.meta || '';
-      html += `
-        <div class="entry-period-card">
-          <div class="entry-period-title">☀️ Mañana</div>
-          ${scores.length ? `<div class="entry-scores">${scores.map(s => `<span class="entry-score-chip">${s}</span>`).join('')}</div>` : ''}
-          ${snippet ? `<div class="entry-snippet">"${escHtml(snippet.slice(0,80))}"</div>` : ''}
-        </div>`;
-    }
-
-    if (n) {
-      const emotion = n.emocionpredomino || '';
-      const snippet = n.logro || n.gratitud || '';
-      html += `
-        <div class="entry-period-card">
-          <div class="entry-period-title">🌙 Noche</div>
-          ${emotion ? `<div class="entry-scores"><span class="entry-score-chip">💜 ${escHtml(emotion.slice(0,30))}</span></div>` : ''}
-          ${snippet ? `<div class="entry-snippet">"${escHtml(snippet.slice(0,80))}"</div>` : ''}
-        </div>`;
-    }
-
-    return html;
-  }).join('');
+  list.innerHTML = html;
 }
 
 // ── Render stats ──────────────────────────────────────────────
