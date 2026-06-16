@@ -1,4 +1,4 @@
-const CACHE = 'tlp-pro-v3';
+const CACHE = 'tlp-pro-v5';
 const ASSETS = ['/', '/index.html', '/script.js', '/manifest.json'];
 
 self.addEventListener('install', e => {
