@@ -135,7 +135,7 @@
       color: var(--dim);
       cursor: pointer;
       font-family: inherit;
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 500;
       transition: color .2s;
       -webkit-tap-highlight-color: transparent;
@@ -843,6 +843,37 @@
       -webkit-tap-highlight-color: transparent;
     }
 
+    /* ── Docs screen ─────────────────────────────────────────────── */
+    .docs-upload-area {
+      border: 2px dashed rgba(124,58,237,0.3);
+      border-radius: 18px;
+      background: #f5f0ff;
+      padding: 32px 20px;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .docs-upload-icon { font-size: 40px; margin-bottom: 12px; }
+    .docs-upload-title { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+    .docs-upload-sub { font-size: 13px; color: var(--muted); margin-bottom: 18px; line-height: 1.5; }
+    .doc-card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-left: 4px solid var(--pink);
+      border-radius: var(--r);
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .doc-icon { font-size: 28px; flex-shrink: 0; }
+    .doc-info { flex: 1; min-width: 0; }
+    .doc-name { font-size: 14px; font-weight: 700; color: var(--text); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .doc-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .doc-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .doc-btn { padding: 6px 10px; border: 1.5px solid var(--border); background: var(--surface2); border-radius: 8px; font-size: 12px; cursor: pointer; font-family: inherit; color: var(--text); }
+    .doc-btn.del { border-color: rgba(220,38,38,0.3); color: #dc2626; }
+
     /* ── Therapy audio ────────────────────────────────────────────── */
     .therapy-grid {
       display: grid;
@@ -1129,7 +1160,10 @@
     <section class="screen" id="screen-historial">
       <div class="history-header">
         <div class="history-title">Historial</div>
-        <div class="history-count" id="entryCount">0 registros</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="history-count" id="entryCount">0 registros</div>
+          <button id="exportPdfBtn" style="padding:5px 12px;background:linear-gradient(135deg,#7c3aed,#db2777);color:#fff;border:none;border-radius:20px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;white-space:nowrap;">📄 Exportar PDF</button>
+        </div>
       </div>
       <div id="entriesList"></div>
     </section>
@@ -1258,6 +1292,23 @@
 
     </section>
 
+    <!-- ── DOCUMENTOS MÉDICOS ──────────────────────────────────────── -->
+    <section class="screen" id="screen-docs">
+
+      <!-- Upload area -->
+      <div class="docs-upload-area">
+        <div class="docs-upload-icon">📎</div>
+        <div class="docs-upload-title">Mis documentos médicos</div>
+        <div class="docs-upload-sub">Adjunta informes, análisis y recetas<br>para tenerlos siempre a mano</div>
+        <input type="file" id="docFileInput" accept=".pdf,image/*" style="display:none">
+        <button class="btn-primary" id="docAddBtn" style="width:auto;padding:12px 28px;font-size:15px;">＋ Añadir documento</button>
+      </div>
+
+      <!-- Documents list -->
+      <div id="docsList"></div>
+
+    </section>
+
   </main>
 
   <!-- ══ Bottom nav ═══════════════════════════════════════════════ -->
@@ -1282,6 +1333,10 @@
     <button class="nav-btn" id="nav-stats" data-screen="stats">
       <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
       Stats
+    </button>
+    <button class="nav-btn" id="nav-docs" data-screen="docs">
+      <svg viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+      Docs
     </button>
   </nav>
 

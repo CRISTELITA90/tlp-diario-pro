@@ -1332,3 +1332,425 @@ if (notifSupported() && Notification.permission === 'granted') {
   const stopAllBtn = document.getElementById('toneStopAll');
   if (stopAllBtn) stopAllBtn.addEventListener('click', () => { stopAll(); showToast('Audio detenido'); });
 })();
+
+// ── PDF Export ────────────────────────────────────────────────
+document.getElementById('exportPdfBtn').addEventListener('click', () => {
+  const legacy = LegacyDB.load();
+  const mapa   = MapaDB.load();
+
+  // Build date range label
+  const allDates = [
+    ...mapa.map(e => e.date),
+    ...legacy.map(e => new Date(e.timestamp).toISOString().slice(0, 10)),
+  ].sort();
+  const dateRangeLabel = allDates.length
+    ? (allDates[0] === allDates[allDates.length - 1]
+        ? allDates[0]
+        : allDates[0] + ' — ' + allDates[allDates.length - 1])
+    : '';
+
+  const totalEntries = legacy.length + mapa.length;
+  const generatedOn = new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  // ── Group mapa entries by date ──────────────────────────────
+  const mapaByDate = {};
+  mapa.forEach(e => {
+    if (!mapaByDate[e.date]) mapaByDate[e.date] = {};
+    mapaByDate[e.date][e.period] = e;
+  });
+
+  // Collect all dates (mapa + legacy) sorted newest-first
+  const legacyByDate = {};
+  legacy.forEach(e => {
+    const d = new Date(e.timestamp).toISOString().slice(0, 10);
+    if (!legacyByDate[d]) legacyByDate[d] = [];
+    legacyByDate[d].push(e);
+  });
+
+  const allUniqueDates = [...new Set([
+    ...Object.keys(mapaByDate),
+    ...Object.keys(legacyByDate),
+  ])].sort((a, b) => b.localeCompare(a));
+
+  function esc(s) {
+    if (!s) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function scoreBar(val) {
+    if (!val) return '';
+    const pct = (val / 10) * 100;
+    const color = val <= 3 ? '#db2777' : val <= 6 ? '#7c3aed' : '#059669';
+    return `<div style="display:flex;align-items:center;gap:8px;margin-top:3px;">
+      <div style="flex:1;height:6px;background:#ede9fe;border-radius:3px;overflow:hidden;">
+        <div style="width:${pct}%;height:100%;background:${color};border-radius:3px;"></div>
+      </div>
+      <span style="font-size:12px;font-weight:700;color:${color};min-width:30px;">${val}/10</span>
+    </div>`;
+  }
+
+  let entriesHtml = '';
+
+  const EMOTIONS_ICON = {
+    'ansiedad':'😰','vacío':'🕳️','ira':'🔥','tristeza':'💧',
+    'miedo al abandono':'👻','impulsividad':'⚡','disociación':'🌫️','calma':'🌊',
+  };
+
+  allUniqueDates.forEach(date => {
+    const dateLabel = new Date(date + 'T12:00:00').toLocaleDateString('es-ES', {
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+    });
+
+    entriesHtml += `<div class="date-group">
+      <div class="date-header">${esc(dateLabel)}</div>`;
+
+    // Mapa entries for this date
+    if (mapaByDate[date]) {
+      const m = mapaByDate[date]['manana'];
+      const n = mapaByDate[date]['noche'];
+
+      if (m) {
+        entriesHtml += `<div class="entry mapa-entry">
+          <div class="entry-period">☀️ Mañana</div>
+          <div class="scores-row">`;
+        if (m.sueno)   entriesHtml += `<div class="score-item"><span class="score-label">🌙 Sueño</span>${scoreBar(m.sueno)}</div>`;
+        if (m.energia) entriesHtml += `<div class="score-item"><span class="score-label">⚡ Energía</span>${scoreBar(m.energia)}</div>`;
+        if (m.emocion) entriesHtml += `<div class="score-item"><span class="score-label">💜 Emoción</span>${scoreBar(m.emocion)}</div>`;
+        entriesHtml += `</div>`;
+        const mapaFields = [
+          ['Qué necesito',          m.necesito],
+          ['Meta del día',          m.meta],
+          ['Primer paso',           m.primerpaso],
+          ['Mantra',                m.mantra],
+          ['Pensamiento limitante', m.pensamientolimitante],
+          ['Cambio de pensamiento', m.cambioPensamiento || m.cambiopensamiento],
+        ];
+        mapaFields.forEach(([label, val]) => {
+          if (val) entriesHtml += `<div class="field-row"><span class="field-label">${esc(label)}:</span> <span class="field-val">${esc(val)}</span></div>`;
+        });
+        entriesHtml += `</div>`;
+      }
+
+      if (n) {
+        entriesHtml += `<div class="entry mapa-entry">
+          <div class="entry-period">🌙 Noche</div>`;
+        const nocheFields = [
+          ['Diálogo ante el error',   n.dialogoerror],
+          ['Situación de estrés',     n.situacionestres],
+          ['Cómo reaccioné',          n.reaccion],
+          ['Qué haré diferente',      n.diferente],
+          ['Con quién comunicarme',   n.comunicar],
+          ['Desde la asertividad',    n.asertividad],
+          ['Fortalecer un vínculo',   n.vinculo],
+          ['Logro del día',           n.logro],
+          ['Cualidad personal',       n.cualidad],
+          ['Actitud que me ayudó',    n.actitud],
+          ['Emoción predominante',    n.emocionpredomino],
+          ['Pensamiento asociado',    n.pensamientoemocion],
+          ['Gratitud',                n.gratitud],
+        ];
+        nocheFields.forEach(([label, val]) => {
+          if (val) entriesHtml += `<div class="field-row"><span class="field-label">${esc(label)}:</span> <span class="field-val">${esc(val)}</span></div>`;
+        });
+        entriesHtml += `</div>`;
+      }
+    }
+
+    // Legacy entries for this date
+    if (legacyByDate[date]) {
+      legacyByDate[date].forEach(e => {
+        const t = new Date(e.timestamp).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+        const icon = EMOTIONS_ICON[e.emotion] || '💭';
+        const intColor = e.intensity >= 8 ? '#dc2626' : e.intensity >= 5 ? '#7c3aed' : '#059669';
+        entriesHtml += `<div class="entry legacy-entry">
+          <div class="entry-period" style="color:#db2777;">
+            ${icon} ${esc(e.emotion || '')}
+            <span style="float:right;font-size:13px;font-weight:700;color:${intColor};">${e.intensity}/10</span>
+          </div>
+          <div class="field-row" style="color:#888;font-size:12px;margin-bottom:6px;">${esc(t)}</div>`;
+        if (e.trigger) entriesHtml += `<div class="field-row"><span class="field-label">Desencadenante:</span> <span class="field-val">${esc(e.trigger)}</span></div>`;
+        if (e.notes)   entriesHtml += `<div class="field-row"><span class="field-label">Notas:</span> <span class="field-val" style="font-style:italic;">${esc(e.notes)}</span></div>`;
+        // Intensity bar
+        entriesHtml += `<div style="margin-top:6px;">${scoreBar(e.intensity)}</div>`;
+        entriesHtml += `</div>`;
+      });
+    }
+
+    entriesHtml += `</div>`; // close date-group
+  });
+
+  if (!entriesHtml) {
+    entriesHtml = `<div style="text-align:center;padding:60px 20px;color:#6d28d9;font-size:16px;">
+      No hay registros que exportar todavía.
+    </div>`;
+  }
+
+  const printHtml = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Mi Registro Emocional — TLP Diario</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #fff;
+      color: #1e1b4b;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 32px 24px 48px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .print-header {
+      text-align: center;
+      border-bottom: 3px solid #7c3aed;
+      padding-bottom: 20px;
+      margin-bottom: 28px;
+    }
+    .print-title {
+      font-size: 26px;
+      font-weight: 800;
+      color: #7c3aed;
+      margin-bottom: 6px;
+    }
+    .print-subtitle { font-size: 14px; color: #6d28d9; margin-bottom: 4px; }
+    .print-meta { font-size: 13px; color: #888; }
+    .date-group { margin-bottom: 28px; page-break-inside: avoid; }
+    .date-header {
+      font-size: 15px;
+      font-weight: 700;
+      color: #7c3aed;
+      text-transform: capitalize;
+      background: #f5f0ff;
+      padding: 8px 14px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+    }
+    .entry {
+      border: 1px solid rgba(124,58,237,0.2);
+      border-left: 4px solid #7c3aed;
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      page-break-inside: avoid;
+    }
+    .legacy-entry { border-left-color: #db2777; }
+    .entry-period {
+      font-size: 15px;
+      font-weight: 700;
+      color: #1e1b4b;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(124,58,237,0.15);
+    }
+    .scores-row {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    .score-item { flex: 1; min-width: 140px; }
+    .score-label { font-size: 12px; font-weight: 600; color: #6d28d9; display: block; margin-bottom: 3px; }
+    .field-row { margin-bottom: 7px; font-size: 13px; }
+    .field-label { font-weight: 700; color: #6d28d9; margin-right: 4px; }
+    .field-val { color: #1e1b4b; }
+    .print-footer {
+      text-align: center;
+      margin-top: 40px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(124,58,237,0.2);
+      font-size: 12px;
+      color: #888;
+    }
+    @media print {
+      body { padding: 16px; }
+      @page { margin: 15mm; }
+    }
+  </style>
+</head>
+<body>
+  <div class="print-header">
+    <div class="print-title">Mi Registro Emocional</div>
+    <div class="print-subtitle">TLP Diario Pro</div>
+    ${dateRangeLabel ? `<div class="print-meta">${esc(dateRangeLabel)}</div>` : ''}
+    <div class="print-meta">${totalEntries} registro${totalEntries !== 1 ? 's' : ''} en total</div>
+  </div>
+
+  ${entriesHtml}
+
+  <div class="print-footer">
+    Generado el ${esc(generatedOn)} — App TLP Diario Pro
+  </div>
+
+  <script>window.print();<\/script>
+</body>
+</html>`;
+
+  const win = window.open('', '_blank');
+  if (!win) {
+    showToast('⚠️ Activa las ventanas emergentes para exportar PDF');
+    return;
+  }
+  win.document.open();
+  win.document.write(printHtml);
+  win.document.close();
+});
+
+// ── Documentos médicos (Docs screen) ─────────────────────────
+(function initDocs() {
+  const DOCS_KEY   = 'tlp_docs_v1';
+  const MAX_SIZE   = 3 * 1024 * 1024; // 3 MB
+
+  function loadDocs() {
+    try { return JSON.parse(localStorage.getItem(DOCS_KEY) || '[]'); } catch { return []; }
+  }
+
+  function saveDocs(docs) {
+    try {
+      localStorage.setItem(DOCS_KEY, JSON.stringify(docs));
+      return true;
+    } catch (e) {
+      if (e.name === 'QuotaExceededError' || (e.code && (e.code === 22 || e.code === 1014))) {
+        return false;
+      }
+      return false;
+    }
+  }
+
+  function formatSize(bytes) {
+    if (bytes >= 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    return Math.round(bytes / 1024) + ' KB';
+  }
+
+  function typeLabel(mime) {
+    if (mime === 'application/pdf' || mime === 'pdf') return 'PDF';
+    if (mime.startsWith('image/')) return 'Imagen';
+    return 'Archivo';
+  }
+
+  function typeIcon(mime) {
+    if (mime === 'application/pdf' || mime === 'pdf') return '📄';
+    if (mime.startsWith('image/')) return '🖼️';
+    return '📎';
+  }
+
+  function renderDocs() {
+    const list = document.getElementById('docsList');
+    if (!list) return;
+    const docs = loadDocs();
+
+    if (!docs.length) {
+      list.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">📂</div>
+          <div class="empty-title">Sin documentos aún</div>
+          <div class="empty-sub">Añade informes médicos,<br>análisis o recetas.</div>
+        </div>`;
+      return;
+    }
+
+    list.innerHTML = docs.map(doc => `
+      <div class="doc-card" data-id="${doc.id}">
+        <div class="doc-icon">${typeIcon(doc.type)}</div>
+        <div class="doc-info">
+          <div class="doc-name" title="${doc.name.replace(/"/g,'&quot;')}">${doc.name}</div>
+          <div class="doc-meta">
+            ${doc.date} · ${formatSize(doc.size)}
+            <span style="margin-left:6px;background:rgba(124,58,237,0.1);color:#7c3aed;padding:1px 7px;border-radius:10px;font-weight:600;">${typeLabel(doc.type)}</span>
+          </div>
+        </div>
+        <div class="doc-actions">
+          <button class="doc-btn view-btn" data-id="${doc.id}">Ver 👁</button>
+          <button class="doc-btn del" data-id="${doc.id}">🗑 Borrar</button>
+        </div>
+      </div>`).join('');
+
+    // View buttons
+    list.querySelectorAll('.view-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id  = btn.dataset.id;
+        const doc = loadDocs().find(d => String(d.id) === String(id));
+        if (!doc) return;
+        const win = window.open('', '_blank');
+        if (!win) { showToast('⚠️ Activa las ventanas emergentes para ver el archivo'); return; }
+        const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${doc.name}</title></head>
+          <body style="margin:0;background:#222;display:flex;align-items:center;justify-content:center;min-height:100vh;">
+          ${doc.type.startsWith('image/')
+            ? `<img src="${doc.data}" style="max-width:100%;max-height:100vh;object-fit:contain;">`
+            : `<embed src="${doc.data}" type="${doc.type}" style="width:100vw;height:100vh;" />`}
+          </body></html>`;
+        win.document.open(); win.document.write(html); win.document.close();
+      });
+    });
+
+    // Delete buttons
+    list.querySelectorAll('.doc-btn.del').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.id;
+        const docs = loadDocs().filter(d => String(d.id) !== String(id));
+        saveDocs(docs);
+        renderDocs();
+        showToast('🗑 Documento eliminado');
+      });
+    });
+  }
+
+  // Trigger file picker
+  const addBtn   = document.getElementById('docAddBtn');
+  const fileInput = document.getElementById('docFileInput');
+
+  if (addBtn && fileInput) {
+    addBtn.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files && fileInput.files[0];
+      if (!file) return;
+      fileInput.value = ''; // reset so same file can be re-picked
+
+      if (file.size > MAX_SIZE) {
+        showToast('❌ Archivo demasiado grande. Máximo 3 MB por archivo.');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const data = ev.target.result; // base64 data URL
+        const doc = {
+          id:   Date.now(),
+          name: file.name,
+          size: file.size,
+          type: file.type || 'application/octet-stream',
+          date: new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }),
+          data,
+        };
+        const docs = loadDocs();
+        docs.unshift(doc);
+        const ok = saveDocs(docs);
+        if (!ok) {
+          showToast('Archivo demasiado grande para guardar. Máximo ~3MB total.');
+          return;
+        }
+        renderDocs();
+        showToast('✅ Documento guardado');
+      };
+      reader.onerror = () => showToast('❌ Error al leer el archivo');
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // Render docs when screen is shown
+  const origNavigate = navigate;
+  // Patch navigate to also render docs
+  window._docsRenderOnNav = true;
+
+  // Re-render docs whenever user taps Docs tab
+  document.getElementById('nav-docs') && document.getElementById('nav-docs').addEventListener('click', () => {
+    renderDocs();
+  });
+
+  // Initial render if docs screen is already active (unlikely but safe)
+  if (document.getElementById('screen-docs') && document.getElementById('screen-docs').classList.contains('active')) {
+    renderDocs();
+  }
+})();
