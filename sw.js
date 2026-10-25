@@ -1,5 +1,12 @@
-const CACHE = 'tlp-pro-v5';
-const ASSETS = ['/', '/index.html', '/script.js', '/manifest.json'];
+const CACHE = 'tlp-pro-v6';
+const ASSETS = [
+  '/',
+  '/index.html',
+  '/script.js',
+  '/identidad.js',
+  '/pulso-sos.js',
+  '/manifest.json'
+];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
