@@ -1,4 +1,4 @@
-const CACHE = 'tlp-pro-v7';
+const CACHE = 'tlp-pro-v8';
 
 const ASSETS = [
   '/',
@@ -6,6 +6,7 @@ const ASSETS = [
   '/script.js',
   '/identidad.js',
   '/pulso-sos.js',
+  '/informe.js',
   '/manifest.json'
 ];
 
